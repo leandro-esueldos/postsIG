@@ -92,6 +92,12 @@ def calibracion() -> None:
     ultima = [l for l in salida.splitlines() if l.strip()][-1] if salida.strip() else "sin salida"
     marca(code == 0, ultima.strip())
 
+    print("\n2b. Modo con sus elegidas (casamientos de mentira, sin fotos)", flush=True)
+    code, salida = correr([sys.executable, str(ROOT / "test_elegidas.py")])
+    fallas = [l.strip() for l in salida.splitlines() if l.strip().startswith("FALLA")]
+    marca(code == 0, "entran todas, bien repartidas, y los cambios pasan a la lista" if code == 0
+          else "; ".join(fallas[:3]) or "test_elegidas.py falló")
+
 
 def plan_de(destino: Path) -> dict[int, tuple]:
     """El post como está en el disco: qué foto y qué montaje tiene cada slide."""
@@ -197,8 +203,10 @@ def main() -> int:
 
     config = json.loads((ROOT / "config.json").read_text(encoding="utf-8-sig"))
     inter = config.get("interfaz", {})
-    albumes = Path(inter.get("albumes", ROOT / "albumes")).expanduser()
-    salida = Path(inter.get("salida", ROOT / "salida")).expanduser()
+    # Las mismas carpetas que usa la interfaz: una ruta D:/ de la config abierta en la Mac cae a
+    # la carpeta por omisión en vez de buscar una carpeta llamada "D:"
+    import interfaz as interfaz_mod
+    albumes, salida = interfaz_mod.carpetas()
 
     print(f"Armar post · pruebas funcionales · {datetime.now():%d/%m/%Y %H:%M}")
     print(f"  casamientos en {albumes}")

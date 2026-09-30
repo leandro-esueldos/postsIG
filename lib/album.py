@@ -25,9 +25,10 @@ EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
 # Los RAW no se abren: hay que exportarlos revelados, que es lo que define su estilo.
 RAW_EXTENSIONS = {".cr2", ".cr3", ".nef", ".arw", ".raf", ".rw2", ".orf", ".dng", ".heic", ".heif"}
 CACHE_DIRNAME = ".curator"
-# Carpetas dentro del álbum que no son el casamiento: el caché, y las fotos de referencia de los
-# novios, que conviene dejar adentro del álbum para que viajen juntas pero no son material del post
-SKIP_DIRS = {CACHE_DIRNAME, "novios"}
+# Carpetas dentro del álbum que no son el casamiento: el caché; las fotos de referencia de los
+# novios; las copias de las que eligió él (modo "con mis elegidas"), y las slides que publicó
+# (para entrenar). Conviene que viajen adentro del álbum, pero no son material del post.
+SKIP_DIRS = {CACHE_DIRNAME, "novios", "elegidas", "publicado", "publicadas", "instagram"}
 THUMB_SIDE = 1024
 INDEX_VERSION = 1
 

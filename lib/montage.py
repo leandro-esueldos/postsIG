@@ -528,8 +528,17 @@ def plan(slides: list[dict], pool_by_chapter: dict[str, list], config: dict,
     return slides
 
 
-def save(img: Image.Image, dest: Path) -> None:
+def save(img: Image.Image, dest: Path, orden: int | None = None, base=None) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
+    exif = Image.Exif()
+    if orden is not None:
+        # Hora de captura consecutiva, un segundo por slide: pasadas al celular (AirDrop), Fotos
+        # las ordena por esa hora, y así quedan juntas y en el orden del post al elegirlas en
+        # Instagram. Sin esto quedan con la hora en que llegaron, que puede mezclarlas.
+        from datetime import datetime, timedelta
+        cuando = (base or datetime.now().replace(microsecond=0)) + timedelta(seconds=orden)
+        exif[0x0131] = "Armar post"                       # Software
+        exif.get_ifd(0x8769)[36867] = cuando.strftime("%Y:%m:%d %H:%M:%S")
     # 4:4:4 y calidad 95: Instagram recomprime igual, pero partir de algo limpio se nota
     img.save(dest, "JPEG", quality=JPEG_QUALITY, subsampling=0, icc_profile=SRGB_BYTES,
-             optimize=True)
+             optimize=True, exif=exif)

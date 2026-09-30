@@ -132,6 +132,36 @@ Medido al píxel sobre sus cinco collages publicados (fase 5):
 | **—** | **Material real: verdad, evaluación, entrenamiento, recalibración** | **hecho con 6 casamientos** |
 | **—** | **Interfaz local para mirar el post y cambiarlo** | **hecha** |
 | **—** | **Pruebas funcionales de punta a punta (`probar.py`)** | **hechas, 34 de 34** |
+| **—** | **Modo "con mis elegidas": él elige, la herramienta arma los collages con todas** | **hecho** |
+| **—** | **Entrenar desde la interfaz, acumulativo, con lo publicado y lo elegido** | **hecho** |
+
+## Modo "con mis elegidas" (30/09/2026)
+
+Pedido de Diego: además de que la IA elija del álbum completo, poder pasarle las fotos que ya
+eligió él y que arme los collages.
+
+- **Es otro problema.** No hay que elegir momentos sino empaquetar: que entren todas en 20
+  slides como mucho. Se resuelve partiendo la secuencia del día en tramos contiguos por
+  programación dinámica (`lib/elegidas.py`); cada tramo es una slide sola o un collage de 2, 4, 5 o
+  6 (no hay plantilla de 3). El costo junta lo que ya se sabía: apaisada sola cuesta, recortar
+  cuesta, abarcar más de 45 minutos o dos capítulos cuesta, meter una vertical fuerte en un collage
+  cuesta. Con el tope de slides como restricción dura, sale el reparto de menor costo.
+- **Dentro de cada bloque del día, las apaisadas se ordenan juntas** antes de partir: en el orden
+  estricto por hora, una vertical en el medio separaba dos apaisadas que iban a un apilado.
+- **Los cambios se guardan en la lista, no en el post.** "Sacar la slide 7" saca sus fotos de
+  `elegidas.txt`; "la 3 sola" las marca. Así volver a armar no depende de números de slide viejos,
+  y se aplican una sola vez (quedan en `cambios.txt` como `# aplicado:`).
+- **Lo que elige es la mejor etiqueta que hay.** Elegir 40 fotos de un álbum de 1.500 es lo mismo
+  que publicarlas, sin esperar a que las suba: queda en `elegidas.json` y el entrenamiento lo usa.
+- Los dos posts conviven: el de la IA en `salida/<boda>/`, el suyo en `salida/<boda>/elegidas/`.
+
+## Riesgo que apareció al entrenar desde la Mac
+
+El modelo se entrenó con seis álbumes que viven en otra máquina. Reentrenar en la Mac de Diego con
+lo que haya ahí lo habría hecho desaprender. Ahora el entrenamiento suma (`datos_preferencia.npz`
+guarda los renglones de cada casamiento), y si el modelo actual sabe de casamientos que no se
+pueden reconstruir, no se reemplaza. **Pendiente**: correr una vez `entrenar.py --modelo` en la
+máquina con los seis álbumes y llevar `datos_preferencia.npz` a la Mac.
 
 ## Lo que se aprendió en la fase 3
 

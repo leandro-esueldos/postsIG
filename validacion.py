@@ -29,16 +29,22 @@ from lib import embed
 
 
 def datos(album: Path) -> tuple[list, dict, set, list] | None:
+    from lib import preference as pref_lib
+
     cache = album / album_lib.CACHE_DIRNAME
-    verdad = cache / "publicadas.json"
-    if not verdad.is_file():
+    publicadas = pref_lib.etiquetas(album)
+    if not publicadas:
         return None
     photos = list(album_lib.load_index(cache).values())
     if not photos or not photos[0].metrics:
         return None
-    publicadas = set(json.loads(verdad.read_text(encoding="utf-8-sig"))["publicadas"])
     embeddings = embed.for_album(album, photos, album_lib.thumb_path)
     return photos, embeddings, publicadas, []
+
+
+def modelo_pref_analisis(album: Path, salidas: Path):
+    from lib import preference as pref_lib
+    return pref_lib.analisis(album, salidas)
 
 
 def por_momento(photos: list, valores: dict, publicadas: set, grupos: dict) -> tuple[list, list]:
@@ -65,8 +71,11 @@ def main() -> int:
     inter = config.get("interfaz", {})
     base = Path(inter.get("albumes", curate.ROOT / "albumes")).expanduser()
     salidas = Path(args.salida or inter.get("salida", curate.ROOT / "salida")).expanduser()
-    albumes = ([Path(a).expanduser().resolve() for a in args.albumes] or
-               [d for d in sorted(base.iterdir()) if d.is_dir()] if base.is_dir() else [])
+    # Ojo con la precedencia: "a or b if c else d" es "(a or b) if c else d", y con la carpeta de
+    # la config inexistente (una ruta D:/ abierta en la Mac) se perdían los --albumes pedidos
+    albumes = [Path(a).expanduser().resolve() for a in args.albumes]
+    if not albumes and base.is_dir():
+        albumes = [d for d in sorted(base.iterdir()) if d.is_dir()]
 
     print("Validación dejando un casamiento afuera")
     print(f"{'casamiento':12} {'fotos':>6} {'publicó':>8} {'AUC foto':>9} {'AUC momento':>12} "
@@ -89,8 +98,8 @@ def main() -> int:
         auc_tec = auc(tecnica, etiquetas)
 
         auc_mom = None
-        analisis = salidas / album.name / "analisis.json"
-        if analisis.is_file():
+        analisis = modelo_pref_analisis(album, salidas)
+        if analisis is not None:
             grupos = {f["rel"]: f["group"]
                       for f in json.loads(analisis.read_text(encoding="utf-8-sig"))["fotos"]}
             v, y = por_momento(photos, pref, publicadas, grupos)

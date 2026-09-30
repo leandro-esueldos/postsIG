@@ -14,6 +14,14 @@ rutas ni acordarse de nombres de archivo.
 Los casamientos se agregan desde la página con el botón "Agregar casamiento", que abre el diálogo
 de carpetas del sistema (Finder en macOS, Explorador en Windows). La carpeta **no se copia**: queda
 donde está y acá se guarda la ruta, porque un álbum pesa varios GB.
+
+Cada casamiento tiene dos posts posibles, y pueden convivir:
+
+- **El de la IA** (salida/<casamiento>/): la herramienta elige los momentos del álbum completo.
+- **Con sus elegidas** (salida/<casamiento>/elegidas/): Diego ya eligió las fotos —marcándolas en
+  la página, arrastrándolas o con una carpeta— y la herramienta arma los collages con todas.
+
+El botón "Entrenar" corre entrenar_todo.py: lo que publicó y lo que eligió pasan a ser ejemplos.
 """
 from __future__ import annotations
 
@@ -33,11 +41,16 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lib import album as album_lib
+from lib import elegidas as elegidas_lib
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = ROOT / "config.json"
 PAGINA = ROOT / "interfaz.html"
 REGISTRO = ROOT / "casamientos.json"        # los que se agregaron desde la página, por ruta
+ENTRENAMIENTO = ROOT / "entrenamiento.json"  # cuándo y con qué se entrenó por última vez
+MODELO_PREFERENCIA = ROOT / "modelo_preferencia.json"
+MODOS = ("ia", "elegidas")
+MINI_LADO = 320                              # las miniaturas del selector de fotos
 UNIDAD_WINDOWS = re.compile(r"^[A-Za-z]:")
 
 TIPOS = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
@@ -94,13 +107,15 @@ def guardar_registrados(rutas: list[Path]) -> None:
 
 
 def contar_fotos(carpeta: Path) -> int:
+    """Cuántas fotos tiene el álbum, contando subcarpetas (los álbumes de Drive suelen venir en
+    carpetas por parte del día) y salteando las que no son material: caché, novios, publicado."""
     # En Windows y en macOS el sistema de archivos no distingue mayúsculas: sumar *.jpg y *.JPG
     # contaba cada foto dos veces
     try:
-        return len({p.name.lower() for p in carpeta.iterdir()
-                    if p.suffix.lower() in album_lib.EXTENSIONS})
+        fotos, _ = album_lib.scan(carpeta)
     except OSError:
         return 0
+    return len({p.relative_to(carpeta).as_posix().lower() for p in fotos})
 
 
 def albumes_por_nombre() -> dict[str, Path]:
@@ -144,18 +159,25 @@ class Trabajo:
     def corriendo(self) -> bool:
         return self.proceso is not None and self.proceso.poll() is None
 
-    def arrancar(self, album: Path, salida: Path, novios: Path | None) -> None:
-        if self.corriendo:
-            return
+    def arrancar(self, album: Path, salida: Path, novios: Path | None,
+                 extra: list[str] | None = None, titulo: str | None = None) -> bool:
         cmd = [sys.executable, str(ROOT / "curate.py"), str(album), "--out", str(salida)]
         if novios and novios.is_dir():
             cmd += ["--novios", str(novios)]
+        return self.correr(cmd + (extra or []), titulo or f"armar el post de {album.name}",
+                           album.name)
+
+    def correr(self, cmd: list[str], titulo: str, album: str = "") -> bool:
+        """Arranca un proceso y va juntando lo que imprime. False si ya había otro corriendo."""
         with self.lock:
-            self.lineas = [f"$ armar el post de {album.name}"]
-            self.album = album.name
-        self.proceso = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                        text=True, encoding="utf-8", errors="replace", bufsize=1)
+            if self.corriendo:
+                return False
+            self.lineas = [f"$ {titulo}"]
+            self.album = album
+            self.proceso = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                            text=True, encoding="utf-8", errors="replace", bufsize=1)
         threading.Thread(target=self._leer, daemon=True).start()
+        return True
 
     def _leer(self) -> None:
         assert self.proceso and self.proceso.stdout
@@ -173,7 +195,7 @@ class Trabajo:
 
     def estado(self) -> dict:
         with self.lock:
-            return {"corriendo": self.corriendo, "album": self.album, "lineas": self.lineas[-40:]}
+            return {"corriendo": self.corriendo, "album": self.album, "lineas": self.lineas[-60:]}
 
 
 TRABAJO = Trabajo()
@@ -222,60 +244,181 @@ def abrir_en_el_explorador(ruta: Path) -> None:
         subprocess.Popen(["xdg-open", str(ruta)])
 
 
+def destino(salida: Path, nombre: str, modo: str) -> Path:
+    """Dónde queda cada post: el de la IA en la carpeta del casamiento, el otro en elegidas/."""
+    return salida / nombre / "elegidas" if modo == "elegidas" else salida / nombre
+
+
+def _cuando(archivo: Path) -> str | None:
+    return (datetime.fromtimestamp(archivo.stat().st_mtime).strftime("%d/%m %H:%M")
+            if archivo.is_file() else None)
+
+
 def listar_albumes() -> list[dict]:
     _, salida = carpetas()
     fijos = {p.resolve() for p in registrados()}
     out = []
     for nombre, carpeta in albumes_por_nombre().items():
-        hecho = salida / nombre / "seleccion.json"
+        ia = salida / nombre / "seleccion.json"
+        eleg = salida / nombre / "elegidas" / "seleccion.json"
+        lista = salida / nombre / "elegidas" / elegidas_lib.ARCHIVO
         out.append({
             "nombre": nombre, "ruta": str(carpeta), "fotos": contar_fotos(carpeta),
             "novios": (carpeta / "novios").is_dir(),
             "agregado": carpeta.resolve() in fijos,
-            "curado": hecho.is_file(),
-            "cuando": datetime.fromtimestamp(hecho.stat().st_mtime).strftime("%d/%m %H:%M")
-            if hecho.is_file() else None,
+            "curado": ia.is_file() or eleg.is_file(),
+            "cuando": _cuando(ia) or _cuando(eleg),
+            "curado_ia": ia.is_file(), "curado_elegidas": eleg.is_file(),
+            "elegidas": len(elegidas_lib.leer(lista)),
+            "carpeta_elegidas": (carpeta / "elegidas").is_dir(),
+            "publicado": any((carpeta / d).is_dir() for d in ("publicado", "publicadas", "instagram")),
         })
     return out
 
 
-def datos_post(nombre: str) -> dict:
+def datos_post(nombre: str, modo: str = "ia") -> dict:
     _, salida = carpetas()
-    archivo = salida / nombre / "seleccion.json"
+    carpeta = destino(salida, nombre, modo)
+    archivo = carpeta / "seleccion.json"
     if not archivo.is_file():
         return {"slides": [], "suplentes": [], "capitulos": []}
     datos = json.loads(archivo.read_text(encoding="utf-8-sig"))
-    cambios = (salida / nombre / "cambios.txt")
+    cambios = carpeta / "cambios.txt"
     datos["cambios"] = [l for l in cambios.read_text(encoding="utf-8-sig").splitlines()
                         if l.strip() and not l.strip().startswith("#")] if cambios.is_file() else []
     return datos
+
+
+def fotos_del_album(nombre: str) -> dict:
+    """Todas las fotos del álbum, para el selector: nombre, miniatura, hora y lo que sepa la IA."""
+    album = albumes_por_nombre().get(nombre)
+    if album is None:
+        return {"fotos": [], "preparado": False}
+    cache = album / album_lib.CACHE_DIRNAME
+    indice = album_lib.load_index(cache)
+    archivos, _ = album_lib.scan(album)
+    rels = {p.relative_to(album).as_posix() for p in archivos}
+    listas = [p for rel, p in indice.items() if rel in rels
+              and (cache / "thumbs" / f"{p.key}.jpg").is_file()]
+    # Lo que sabe la IA, si el álbum ya se analizó: puntaje, capítulo, y si es la mejor toma
+    # de su ráfaga (las otras tomas se pueden esconder en el selector)
+    extra: dict[str, dict] = {}
+    analisis = cache / "analisis.json"
+    if analisis.is_file():
+        try:
+            for f in json.loads(analisis.read_text(encoding="utf-8-sig")).get("fotos", []):
+                extra[f["rel"]] = {"score": f.get("score"), "capitulo": f.get("capitulo"),
+                                   "rafaga": f.get("group_size", 1),
+                                   "principal": f.get("rank_in_group", 0) == 0,
+                                   "grupo": f.get("group")}
+        except (json.JSONDecodeError, KeyError):
+            extra = {}
+    listas.sort(key=lambda p: (p.taken or "", p.rel))
+    return {
+        "preparado": len(listas) >= len(rels) and bool(rels),
+        "total": len(rels),
+        "analizado": bool(extra),
+        "fotos": [{"name": p.name, "key": p.key, "taken": p.taken,
+                   "v": p.height > p.width * 1.05, **extra.get(p.rel, {})} for p in listas],
+    }
+
+
+def nombres_del_album(album: Path) -> dict[str, str]:
+    """nombre en minúsculas -> nombre tal cual, para cruzar lo que eligió con lo que hay."""
+    archivos, _ = album_lib.scan(album)
+    out: dict[str, str] = {}
+    for p in archivos:
+        out.setdefault(p.stem.lower(), p.stem)
+    return out
+
+
+def guardar_elegidas(nombre: str, album: Path, nombres: list[str], sumar: bool) -> dict:
+    """Cruza los nombres con el álbum y guarda la lista. Devuelve cuántas quedaron y cuáles no están."""
+    _, salida = carpetas()
+    lista = destino(salida, nombre, "elegidas") / elegidas_lib.ARCHIVO
+    hay = nombres_del_album(album)
+    pedidas = elegidas_lib.desde_nombres(nombres)
+    faltan = [n for n, _ in pedidas if n.lower() not in hay]
+    nuevas = [(hay[n.lower()], False) for n, _ in pedidas if n.lower() in hay]
+    if sumar:
+        previas = elegidas_lib.leer(lista)
+        ya = {n.lower() for n, _ in previas}
+        nuevas = previas + [x for x in nuevas if x[0].lower() not in ya]
+    else:
+        # Reemplazar la lista conserva las marcas de "sola" de las que siguen
+        solas = {n.lower() for n, s in elegidas_lib.leer(lista) if s}
+        nuevas = [(n, n.lower() in solas) for n, _ in nuevas]
+    elegidas_lib.guardar(lista, nuevas)
+    return {"ok": True, "elegidas": len(nuevas), "faltan": faltan[:30], "cuantas_faltan": len(faltan)}
+
+
+def mini(album: Path, clave: str) -> Path | None:
+    """Miniatura chica para el selector: 3.000 fotos de 1024 px no las aguanta ningún navegador."""
+    origen = album / album_lib.CACHE_DIRNAME / "thumbs" / f"{clave}.jpg"
+    if not origen.is_file():
+        return None
+    dest = album / album_lib.CACHE_DIRNAME / "mini" / f"{clave}.jpg"
+    if not dest.is_file() or dest.stat().st_mtime < origen.stat().st_mtime:
+        from PIL import Image
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with Image.open(origen) as im:
+            im = im.convert("RGB")
+            im.thumbnail((MINI_LADO, MINI_LADO))
+            tmp = dest.with_suffix(".part")
+            im.save(tmp, "JPEG", quality=80)
+            tmp.replace(dest)
+    return dest
+
+
+def estado_modelo() -> dict:
+    """Con qué se entrenó la preferencia, para mostrarlo en la página."""
+    out: dict = {"entrenado": MODELO_PREFERENCIA.is_file()}
+    if MODELO_PREFERENCIA.is_file():
+        try:
+            meta = json.loads(MODELO_PREFERENCIA.read_text(encoding="utf-8-sig")).get("meta", {})
+            out["casamientos"] = len(meta.get("casamientos", []))
+            out["positivos"] = meta.get("positivos")
+        except json.JSONDecodeError:
+            pass
+        out["cuando"] = _cuando(MODELO_PREFERENCIA)
+    if ENTRENAMIENTO.is_file():
+        try:
+            out["ultimo"] = json.loads(ENTRENAMIENTO.read_text(encoding="utf-8-sig"))
+        except json.JSONDecodeError:
+            pass
+    return out
 
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args) -> None:       # sin ruido en la consola
         pass
 
-    def _send(self, code: int, body: bytes, tipo: str) -> None:
+    def _send(self, code: int, body: bytes, tipo: str, cache: bool = False) -> None:
         self.send_response(code)
         self.send_header("Content-Type", tipo)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        # Las miniaturas no cambian (la clave depende del archivo): que el navegador las guarde,
+        # así el selector de 3.000 fotos no las vuelve a pedir en cada vuelta
+        self.send_header("Cache-Control", "max-age=86400" if cache else "no-store")
         self.end_headers()
         self.wfile.write(body)
 
     def _json(self, data, code: int = 200) -> None:
         self._send(code, json.dumps(data, ensure_ascii=False).encode("utf-8"), TIPOS[".json"])
 
-    def _archivo(self, path: Path) -> None:
+    def _archivo(self, path: Path, cache: bool = False) -> None:
         if not path.is_file():
             self._json({"error": "no existe"}, 404)
             return
-        self._send(200, path.read_bytes(), TIPOS.get(path.suffix.lower(), "application/octet-stream"))
+        self._send(200, path.read_bytes(), TIPOS.get(path.suffix.lower(), "application/octet-stream"),
+                   cache)
 
     def do_GET(self) -> None:
         url = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(url.query).items()}
         _, salida = carpetas()
+        modo = q.get("modo") if q.get("modo") in MODOS else "ia"
+        nombre = q.get("album", "")
 
         if url.path in ("/", "/index.html"):
             self._archivo(PAGINA)
@@ -283,21 +426,38 @@ class Handler(BaseHTTPRequestHandler):
             self._json(listar_albumes())
         elif url.path == "/api/estado":
             self._json(TRABAJO.estado())
+        elif url.path == "/api/modelo":
+            self._json(estado_modelo())
         elif url.path == "/api/post":
-            self._json(datos_post(q["album"]) if valido(q.get("album", "")) else {"slides": []})
+            self._json(datos_post(nombre, modo) if valido(nombre) else {"slides": []})
+        elif url.path == "/api/fotos":
+            self._json(fotos_del_album(nombre) if valido(nombre) else {"fotos": []})
+        elif url.path == "/api/elegidas":
+            if not valido(nombre):
+                self._json({"elegidas": []})
+                return
+            lista = destino(salida, nombre, "elegidas") / elegidas_lib.ARCHIVO
+            self._json({"elegidas": [{"name": n, "sola": s} for n, s in elegidas_lib.leer(lista)]})
         elif url.path == "/slide":
-            if not valido(q.get("album", "")):
+            if not valido(nombre):
                 self._json({"error": "nombre raro"}, 400)
                 return
-            self._archivo(salida / q["album"] / "slides" / f"{int(q.get('n', 0)):02d}.jpg")
-        elif url.path == "/thumb":
-            album = albumes_por_nombre().get(q.get("album", "")) if valido(q.get("album", "")) else None
+            self._archivo(destino(salida, nombre, modo) / "slides" / f"{int(q.get('n', 0)):02d}.jpg")
+        elif url.path in ("/thumb", "/mini"):
+            album = albumes_por_nombre().get(nombre) if valido(nombre) else None
             if album is None:
                 self._json({"error": "nombre raro"}, 400)
                 return
             # La clave es hexadecimal: sirve de protección contra rutas raras
             clave = "".join(c for c in q.get("key", "") if c in "0123456789abcdef")
-            self._archivo(album / album_lib.CACHE_DIRNAME / "thumbs" / f"{clave}.jpg")
+            if url.path == "/mini":
+                archivo = mini(album, clave)
+                if archivo is None:
+                    self._json({"error": "no existe"}, 404)
+                    return
+                self._archivo(archivo, cache=True)
+            else:
+                self._archivo(album / album_lib.CACHE_DIRNAME / "thumbs" / f"{clave}.jpg", cache=True)
         else:
             self._json({"error": "no existe"}, 404)
 
@@ -322,8 +482,8 @@ class Handler(BaseHTTPRequestHandler):
         carpeta = carpeta.resolve()
         fotos = contar_fotos(carpeta)
         if not fotos:
-            self._json({"error": "esa carpeta no tiene fotos JPEG adentro. Si están en subcarpetas, "
-                                 "elegí la carpeta que las contiene directamente"}, 400)
+            self._json({"error": "esa carpeta no tiene fotos JPEG adentro, ni en sus subcarpetas. "
+                                 "Si son RAW, hay que exportarlas reveladas a JPEG"}, 400)
             return
         ya = albumes_por_nombre()
         for nombre, otra in ya.items():
@@ -348,15 +508,24 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         url = urlparse(self.path)
         largo = int(self.headers.get("Content-Length", 0))
-        cuerpo = json.loads(self.rfile.read(largo) or b"{}")
+        try:
+            cuerpo = json.loads(self.rfile.read(largo) or b"{}")
+        except json.JSONDecodeError:
+            self._json({"error": "pedido mal formado"}, 400)
+            return
         _, salida = carpetas()
 
-        # Estos dos no hablan de un álbum que ya exista
+        # Estos no hablan de un álbum que ya exista
         if url.path == "/api/elegir":
             self._elegir()
             return
         if url.path == "/api/agregar":
             self._agregar(cuerpo)
+            return
+        if url.path == "/api/entrenar":
+            ok = TRABAJO.correr([sys.executable, str(ROOT / "entrenar_todo.py")],
+                                "entrenar con todo lo que eligió y publicó")
+            self._json({"ok": ok} if ok else {"error": "ya hay algo corriendo, esperá que termine"})
             return
 
         nombre = cuerpo.get("album", "")
@@ -364,31 +533,83 @@ class Handler(BaseHTTPRequestHandler):
         if album is None:
             self._json({"error": "ese álbum no está"}, 400)
             return
+        modo = cuerpo.get("modo") if cuerpo.get("modo") in MODOS else "ia"
+        carpeta = destino(salida, nombre, modo)
 
         if url.path == "/api/curar":
-            destino = salida / nombre
-            destino.mkdir(parents=True, exist_ok=True)
-            TRABAJO.arrancar(album, destino, album / "novios")
-            self._json({"ok": True})
+            carpeta.mkdir(parents=True, exist_ok=True)
+            extra = []
+            if modo == "elegidas":
+                lista = carpeta / elegidas_lib.ARCHIVO
+                if not elegidas_lib.leer(lista):
+                    self._json({"error": "todavía no hay fotos elegidas"}, 400)
+                    return
+                extra = ["--elegidas", str(lista)]
+            slides = cuerpo.get("slides")
+            if isinstance(slides, int) and 1 <= slides <= 20:
+                extra += ["--slides", str(slides)]
+            titulo = (f"armar el post de {nombre} con sus elegidas" if modo == "elegidas"
+                      else f"armar el post de {nombre}")
+            ok = TRABAJO.arrancar(album, carpeta, album / "novios", extra, titulo)
+            self._json({"ok": ok} if ok else {"error": "ya hay algo corriendo, esperá que termine"})
+        elif url.path == "/api/preparar":
+            ok = TRABAJO.arrancar(album, destino(salida, nombre, "ia"), None, ["--preparar"],
+                                  f"preparar las miniaturas de {nombre}")
+            self._json({"ok": ok} if ok else {"error": "ya hay algo corriendo, esperá que termine"})
         elif url.path == "/api/cambios":
             lineas = [str(l).strip() for l in cuerpo.get("lineas", []) if str(l).strip()]
-            archivo = salida / nombre / "cambios.txt"
+            archivo = carpeta / "cambios.txt"
             previo = archivo.read_text(encoding="utf-8-sig") if archivo.is_file() else ""
             archivo.write_text(previo.rstrip() + "\n" + "\n".join(lineas) + "\n", encoding="utf-8")
-            TRABAJO.arrancar(album, salida / nombre, album / "novios")
-            self._json({"ok": True, "lineas": lineas})
+            extra = ["--elegidas", str(carpeta / elegidas_lib.ARCHIVO)] if modo == "elegidas" else []
+            ok = TRABAJO.arrancar(album, carpeta, album / "novios", extra)
+            self._json({"ok": ok, "lineas": lineas} if ok
+                       else {"error": "ya hay algo corriendo: los cambios quedaron guardados, "
+                                      "se aplican la próxima vez que se arme"})
+        elif url.path == "/api/elegidas":
+            nombres = [str(n) for n in cuerpo.get("nombres", []) if str(n).strip()]
+            self._json(guardar_elegidas(nombre, album, nombres, bool(cuerpo.get("sumar"))))
+        elif url.path == "/api/elegidas-carpeta":
+            # Una carpeta con copias de las que eligió: sólo importan los nombres
+            if cuerpo.get("interna"):
+                ruta = album / "elegidas"
+            else:
+                elegida, error = elegir_carpeta()
+                if error:
+                    self._json({"error": error}, 500)
+                    return
+                if not elegida:
+                    self._json({"ok": False})
+                    return
+                ruta = Path(elegida)
+            if not ruta.is_dir():
+                self._json({"error": f"no existe la carpeta {ruta}"}, 400)
+                return
+            nombres = [n for n, _ in elegidas_lib.desde_carpeta(ruta)]
+            if not nombres:
+                self._json({"error": "esa carpeta no tiene fotos"}, 400)
+                return
+            r = guardar_elegidas(nombre, album, nombres, bool(cuerpo.get("sumar")))
+            if r["elegidas"] == 0:
+                r = {"error": f"ninguna de las {len(nombres)} fotos de esa carpeta está en el álbum "
+                              f"{nombre} (se cruzan por nombre de archivo). Si esa carpeta es todo "
+                              f"lo que hay, agregala como casamiento y usá «todas las fotos»"}
+            self._json(r)
+        elif url.path == "/api/elegidas-todas":
+            nombres = list(nombres_del_album(album).values())
+            self._json(guardar_elegidas(nombre, album, nombres, False))
         elif url.path == "/api/abrir":
             # Él sube las slides a mano: que el botón le deje la carpeta abierta adelante
-            destino = salida / nombre / "slides"
-            if not destino.is_dir():
+            slides = carpeta / "slides"
+            if not slides.is_dir():
                 self._json({"error": "todavía no hay slides"}, 404)
                 return
-            abrir_en_el_explorador(destino)
-            self._json({"ok": True, "carpeta": str(destino)})
+            abrir_en_el_explorador(slides)
+            self._json({"ok": True, "carpeta": str(slides)})
         elif url.path == "/api/quitar":
             self._quitar(nombre, album)
         elif url.path == "/api/limpiar-cambios":
-            archivo = salida / nombre / "cambios.txt"
+            archivo = carpeta / "cambios.txt"
             if archivo.is_file():
                 quedan = [l for l in archivo.read_text(encoding="utf-8-sig").splitlines()
                           if l.strip().startswith("#")]

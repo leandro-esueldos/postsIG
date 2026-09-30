@@ -149,6 +149,55 @@ def names_clip(dim: int = 512) -> list[str]:
             + [f"tipo_{k}" for k in KINDS] + ["bn", "apaisada", "momento", "momento2"])
 
 
+def etiquetas(album: Path) -> set[str] | None:
+    """Las fotos que él eligió de este álbum, juntando las dos fuentes que hay.
+
+    - publicadas.json (verdad.py): lo que publicó en Instagram, ubicado en el álbum.
+    - elegidas.json (modo "con mis elegidas"): lo que eligió para el post desde la interfaz.
+    - correcciones.jsonl: cada foto que puso a mano en lugar de la que había propuesto la
+      herramienta (sólo suman a alguna de las otras dos).
+
+    Las dos son la misma señal —"de todo el álbum, él se quedó con éstas"—, y la segunda llega
+    sin esperar a que publique. None si el álbum no tiene ninguna.
+    """
+    from . import album as album_lib
+
+    cache = Path(album) / album_lib.CACHE_DIRNAME
+    encontradas: set[str] | None = None
+    for archivo, clave in (("publicadas.json", "publicadas"), ("elegidas.json", "elegidas")):
+        ruta = cache / archivo
+        if ruta.is_file():
+            try:
+                datos = json.loads(ruta.read_text(encoding="utf-8-sig"))
+            except json.JSONDecodeError:
+                continue
+            encontradas = (encontradas or set()) | set(datos.get(clave, []))
+    # Las correcciones solas no alcanzan para etiquetar un álbum: si cambió una slide de veinte,
+    # las otras diecinueve no son "fotos que no eligió". Sólo suman a una etiqueta que ya existe.
+    correcciones = Path(__file__).resolve().parents[1] / "correcciones.jsonl"
+    if encontradas is not None and correcciones.is_file():
+        propio = str(Path(album).resolve())
+        for linea in correcciones.read_text(encoding="utf-8-sig").splitlines():
+            try:
+                registro = json.loads(linea)
+            except json.JSONDecodeError:
+                continue
+            if registro.get("entra") and str(Path(registro.get("album", "")).resolve()) == propio:
+                encontradas = (encontradas or set()) | {registro["entra"]}
+    return encontradas
+
+
+def analisis(album: Path, salidas: Path | None = None) -> Path | None:
+    """Dónde está el analisis.json del álbum: en su caché, o en la carpeta de salida."""
+    from . import album as album_lib
+
+    for ruta in (Path(album) / album_lib.CACHE_DIRNAME / "analisis.json",
+                 (Path(salidas) / Path(album).name / "analisis.json") if salidas else None):
+        if ruta is not None and ruta.is_file():
+            return ruta
+    return None
+
+
 def dataset(albumes: list, salidas, cargar_embeddings) -> tuple:
     """Arma (X, y, casamiento) con un renglón por momento de cada casamiento etiquetado.
 
@@ -160,12 +209,11 @@ def dataset(albumes: list, salidas, cargar_embeddings) -> tuple:
     X, y, boda = [], [], []
     for album in albumes:
         cache = album / album_lib.CACHE_DIRNAME
-        verdad = cache / "publicadas.json"
-        analisis = salidas / album.name / "analisis.json"
-        if not verdad.is_file() or not analisis.is_file():
+        publicadas = etiquetas(album)
+        archivo = analisis(album, salidas)
+        if not publicadas or archivo is None:
             continue
-        publicadas = set(json.loads(verdad.read_text(encoding="utf-8-sig"))["publicadas"])
-        fotos = json.loads(analisis.read_text(encoding="utf-8-sig"))["fotos"]
+        fotos = json.loads(archivo.read_text(encoding="utf-8-sig"))["fotos"]
         photos = album_lib.load_index(cache)
         embeddings = cargar_embeddings(album)
         posiciones = day_positions(fotos)

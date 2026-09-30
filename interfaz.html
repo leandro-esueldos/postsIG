@@ -6,33 +6,52 @@
 <title>Armar post · Serrano</title>
 <style>
   :root {
-    --fondo: #121110; --panel: #1c1a18; --linea: #2e2b28;
+    --fondo: #121110; --panel: #1c1a18; --linea: #2e2b28; --campo: #262320;
     --texto: #e8e4de; --suave: #968f86; --acento: #d4a85c; --ok: #7bb26a; --alerta: #d97a6c;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--fondo); color: var(--texto);
-    font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+    font: 15px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
   }
   header {
     position: sticky; top: 0; z-index: 10; background: var(--panel);
     border-bottom: 1px solid var(--linea); padding: 12px 18px;
-    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
   }
   h1 { font-size: 17px; margin: 0 8px 0 0; font-weight: 600; letter-spacing: .3px; }
   h1 span { color: var(--acento); }
   select, button {
-    font: inherit; color: var(--texto); background: #262320;
+    font: inherit; color: var(--texto); background: var(--campo);
     border: 1px solid var(--linea); border-radius: 7px; padding: 7px 12px; cursor: pointer;
   }
   button:hover:not(:disabled) { border-color: var(--acento); }
   button:disabled { opacity: .45; cursor: default; }
   button.principal { background: var(--acento); color: #221c12; border-color: var(--acento); font-weight: 600; }
   button.peligro:hover { border-color: var(--alerta); color: var(--alerta); }
-  .estado { color: var(--suave); font-size: 13px; margin-left: auto; text-align: right; }
-  .estado b { color: var(--texto); font-weight: 500; }
+  .derecha { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .modelo { color: var(--suave); font-size: 12px; text-align: right; line-height: 1.3; }
+  .modelo b { color: var(--texto); font-weight: 500; }
+
+  nav.pestanas {
+    display: flex; gap: 4px; padding: 0 18px; background: var(--panel);
+    border-bottom: 1px solid var(--linea); position: sticky; top: 61px; z-index: 9;
+  }
+  nav.pestanas button {
+    background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0;
+    padding: 10px 14px; color: var(--suave);
+  }
+  nav.pestanas button.activa { color: var(--texto); border-bottom-color: var(--acento); }
+  nav.pestanas button .n { color: var(--acento); font-weight: 600; }
 
   main { padding: 18px; }
+  .panel { display: none; }
+  .panel.activo { display: block; }
+  .herramientas { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .herramientas .nota { color: var(--suave); font-size: 13px; }
+  .estado { color: var(--suave); font-size: 13px; }
+  .estado b { color: var(--texto); font-weight: 500; }
+
   .capitulos { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; color: var(--suave); font-size: 13px; }
   .capitulos div { background: var(--panel); border: 1px solid var(--linea); border-radius: 7px; padding: 5px 10px; }
   .capitulos b { color: var(--texto); font-weight: 500; }
@@ -45,6 +64,40 @@
   .slide img { width: 100%; aspect-ratio: 4/5; object-fit: cover; display: block; background: #000; }
   .pie { padding: 6px 9px; font-size: 12px; color: var(--suave); display: flex; justify-content: space-between; gap: 6px; }
   .pie b { color: var(--texto); font-weight: 600; }
+
+  /* elegir fotos */
+  .soltar {
+    border: 1.5px dashed var(--linea); border-radius: 10px; padding: 14px 16px; color: var(--suave);
+    font-size: 13px; margin-bottom: 16px; text-align: center;
+  }
+  .soltar.encima { border-color: var(--acento); color: var(--texto); background: #221d16; }
+  .grilla-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .hora-titulo {
+    grid-column: 1 / -1; color: var(--suave); font-size: 13px; margin: 10px 0 0;
+    border-bottom: 1px solid var(--linea); padding-bottom: 4px;
+  }
+  .hora-titulo b { color: var(--texto); font-weight: 500; }
+  .ft {
+    position: relative; border: 2px solid transparent; border-radius: 7px; overflow: hidden;
+    background: #000; cursor: pointer; user-select: none;
+  }
+  .ft img { width: 100%; aspect-ratio: 1; object-fit: contain; display: block; }
+  .ft .nm {
+    position: absolute; left: 0; right: 0; bottom: 0; font-size: 11px; padding: 2px 6px;
+    background: linear-gradient(transparent, rgba(0,0,0,.75)); color: #ddd;
+  }
+  .ft .ia {
+    position: absolute; top: 5px; left: 5px; font-size: 10px; padding: 1px 5px; border-radius: 4px;
+    background: rgba(18,17,16,.8); color: var(--acento);
+  }
+  .ft .tick {
+    position: absolute; top: 5px; right: 5px; width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.8); background: rgba(0,0,0,.3);
+  }
+  .ft.si { border-color: var(--acento); }
+  .ft.si .tick { background: var(--acento); border-color: var(--acento); }
+  .ft.si .tick::after { content: "✓"; color: #221c12; font-weight: 700; font-size: 13px;
+    position: absolute; inset: 0; display: grid; place-items: center; }
 
   .fondo-modal {
     position: fixed; inset: 0; background: rgba(8,7,6,.86); display: none;
@@ -62,44 +115,52 @@
   .fotos, .alternativas { display: grid; gap: 9px; }
   .fotos { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
   .alternativas { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); max-height: 56vh; overflow: auto; }
-  .foto { border: 1px solid var(--linea); border-radius: 7px; overflow: hidden; background: #000; }
+  .foto { border: 1px solid var(--linea); border-radius: 7px; overflow: hidden; background: #000; position: relative; }
   .foto img { width: 100%; aspect-ratio: 3/2; object-fit: cover; display: block; }
   .foto span { display: block; padding: 4px 6px; font-size: 11px; color: var(--suave); }
+  .foto .sacar {
+    position: absolute; top: 4px; right: 4px; padding: 1px 7px; font-size: 12px;
+    background: rgba(18,17,16,.85);
+  }
   .alternativas .foto { cursor: pointer; }
   .alternativas .foto:hover { border-color: var(--acento); }
   .titulo-seccion { color: var(--suave); font-size: 13px; margin: 14px 0 7px; }
 
   .barra {
     position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--linea);
-    padding: 11px 18px; display: none; gap: 12px; align-items: center; flex-wrap: wrap;
+    padding: 11px 18px; display: none; gap: 12px; align-items: center; flex-wrap: wrap; z-index: 8;
   }
   .barra.hay { display: flex; }
-  .barra code { background: #262320; border-radius: 5px; padding: 2px 7px; font-size: 12px; color: var(--acento); }
+  .barra code { background: var(--campo); border-radius: 5px; padding: 2px 7px; font-size: 12px; color: var(--acento); }
   .consola {
-    font-family: Consolas, monospace; font-size: 12px; color: var(--suave);
+    font-family: Menlo, Consolas, monospace; font-size: 12px; color: var(--suave);
     background: #0d0c0b; border: 1px solid var(--linea); border-radius: 8px;
-    padding: 10px 12px; max-height: 170px; overflow: auto; white-space: pre-wrap; margin-bottom: 16px; display: none;
+    padding: 10px 12px; max-height: 190px; overflow: auto; white-space: pre-wrap; margin-bottom: 16px; display: none;
   }
   .consola.visible { display: block; }
   .vacio { color: var(--suave); padding: 40px 0; text-align: center; line-height: 1.8; }
   .vacio b { color: var(--texto); }
-  .quitar {
-    background: none; border: none; color: var(--suave); padding: 4px 6px; font-size: 13px;
-  }
+  .quitar { background: none; border: none; color: var(--suave); padding: 4px 6px; font-size: 13px; }
   .quitar:hover { color: var(--alerta); }
   .aviso {
     background: #2a211c; border: 1px solid #5d3f33; color: #e8c9bd; border-radius: 8px;
     padding: 9px 12px; margin-bottom: 14px; font-size: 13px; display: none;
   }
+  .aviso.bien { background: #1d261a; border-color: #3f5a35; color: #cfe3c6; }
   .aviso.visible { display: block; }
   .ruta-mano { display: none; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
   .ruta-mano.visible { display: flex; }
   .ruta-mano input {
-    flex: 1; min-width: 260px; font: inherit; color: var(--texto); background: #262320;
+    flex: 1; min-width: 260px; font: inherit; color: var(--texto); background: var(--campo);
     border: 1px solid var(--linea); border-radius: 7px; padding: 7px 11px;
   }
   .ruta-mano input:focus { outline: none; border-color: var(--acento); }
   .ruta-mano span { color: var(--suave); font-size: 13px; }
+  label.chk { color: var(--suave); font-size: 13px; display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  @media (max-width: 760px) {
+    .modal { grid-template-columns: 1fr; }
+    nav.pestanas { top: 0; position: static; overflow-x: auto; }
+  }
 </style>
 </head>
 <body>
@@ -108,10 +169,17 @@
   <select id="album"></select>
   <button id="agregar">Agregar casamiento…</button>
   <button class="quitar" id="quitar" title="Lo saca de la lista; no borra nada del disco">quitar de la lista</button>
-  <button id="curar" class="principal">Armar el post</button>
-  <button id="abrir-carpeta" title="Abre la carpeta con los JPG listos para subir">Abrir la carpeta de slides</button>
-  <div class="estado" id="estado"></div>
+  <div class="derecha">
+    <div class="modelo" id="modelo"></div>
+    <button id="entrenar" title="Aprende de lo que publicó (carpeta publicado/ en cada álbum) y de las fotos que eligió acá">Entrenar</button>
+  </div>
 </header>
+
+<nav class="pestanas" id="pestanas">
+  <button data-p="ia" class="activa">Post de la IA</button>
+  <button data-p="elegidas">Con mis elegidas <span class="n" id="n-elegidas"></span></button>
+  <button data-p="elegir">Elegir fotos del álbum</button>
+</nav>
 
 <main>
   <div class="aviso" id="aviso"></div>
@@ -122,9 +190,62 @@
     <button id="ruta-cerrar">Cancelar</button>
   </div>
   <div class="consola" id="consola"></div>
-  <div class="capitulos" id="capitulos"></div>
-  <div class="slides" id="slides"></div>
-  <div class="vacio" id="vacio">Elegí un casamiento y tocá <b>Armar el post</b>.</div>
+
+  <!-- el post que elige la IA del álbum completo -->
+  <section class="panel activo" id="panel-ia">
+    <div class="herramientas">
+      <button id="curar" class="principal">Armar el post</button>
+      <button id="abrir-ia" title="Abre la carpeta con los JPG listos para subir">Abrir la carpeta de slides</button>
+      <span class="nota">La IA recorre el álbum entero y elige los momentos, hasta 20 slides.</span>
+      <span class="estado" id="estado-ia"></span>
+    </div>
+    <div class="capitulos" id="capitulos-ia"></div>
+    <div class="slides" id="slides-ia"></div>
+    <div class="vacio" id="vacio-ia">Elegí un casamiento y tocá <b>Armar el post</b>.</div>
+  </section>
+
+  <!-- el post con las fotos que ya eligió él -->
+  <section class="panel" id="panel-elegidas">
+    <div class="herramientas">
+      <button id="curar-elegidas" class="principal">Armar el post con mis elegidas</button>
+      <label class="chk">hasta
+        <select id="tope">
+          <option>20</option><option>18</option><option>15</option><option>12</option><option>10</option>
+        </select> slides</label>
+      <button id="abrir-elegidas">Abrir la carpeta de slides</button>
+      <span class="estado" id="estado-elegidas"></span>
+    </div>
+    <div class="herramientas">
+      <button id="ir-elegir">Marcarlas en el álbum…</button>
+      <button id="carpeta-elegidas" title="Una carpeta con copias de las fotos que elegiste: se cruzan por nombre">Usar una carpeta con mis elegidas…</button>
+      <button id="carpeta-interna" style="display:none">Usar la carpeta «elegidas» del álbum</button>
+      <button id="todas" title="Para cuando el casamiento que agregaste ya es sólo lo que elegiste">Usar todas las fotos del álbum</button>
+      <label class="chk" title="Si está marcado, lo que agregues se suma a lo que ya había"><input type="checkbox" id="sumar" checked> sumar a las que ya había</label>
+    </div>
+    <div class="soltar" id="soltar">
+      Arrastrá acá las fotos que elegiste (desde el Finder) o
+      <label style="color:var(--acento);cursor:pointer;text-decoration:underline">elegilas<input type="file" id="archivos" multiple accept="image/*" style="display:none"></label>.
+      No se copian: se reconocen por el nombre del archivo dentro del álbum.
+    </div>
+    <div class="capitulos" id="capitulos-elegidas"></div>
+    <div class="slides" id="slides-elegidas"></div>
+    <div class="vacio" id="vacio-elegidas"></div>
+  </section>
+
+  <!-- marcar las fotos, sobre las miniaturas del álbum -->
+  <section class="panel" id="panel-elegir">
+    <div class="herramientas">
+      <b id="cuenta-elegir">0 marcadas</b>
+      <button id="listo-elegir" class="principal">Listo: armar el post con éstas</button>
+      <label class="chk"><input type="checkbox" id="solo-principal"> sólo la mejor toma de cada ráfaga</label>
+      <label class="chk"><input type="checkbox" id="solo-marcadas"> sólo las marcadas</label>
+      <button id="marcar-ia" title="Marca las fotos que puso la IA en su post, para partir de ahí">Partir de lo que eligió la IA</button>
+      <button class="peligro" id="desmarcar">Desmarcar todas</button>
+      <span class="nota">Clic para marcar · Shift+clic marca todo el tramo · se guarda solo</span>
+    </div>
+    <div class="grilla-fotos" id="grilla-fotos"></div>
+    <div class="vacio" id="vacio-elegir"></div>
+  </section>
 </main>
 
 <div class="barra" id="barra">
@@ -149,7 +270,7 @@
       <div id="modal-info" style="color:var(--suave);font-size:13px"></div>
       <div class="titulo-seccion">Fotos de esta slide</div>
       <div class="fotos" id="modal-fotos"></div>
-      <div class="titulo-seccion">Cambiarla por otra de este momento del día</div>
+      <div class="titulo-seccion" id="titulo-alternativas">Cambiarla por otra de este momento del día</div>
       <div class="alternativas" id="modal-alternativas"></div>
     </div>
   </div>
@@ -157,150 +278,366 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-let ALBUM = "", POST = {slides: [], suplentes: [], capitulos: []}, CAMBIOS = [], SLIDE = null;
-
+const enc = encodeURIComponent;
 const get = (u) => fetch(u).then(r => r.json());
 const post = (u, d) => fetch(u, {method: "POST", headers: {"Content-Type": "application/json"},
-                                body: JSON.stringify(d)}).then(r => r.json());
+                                body: JSON.stringify(d || {})}).then(r => r.json());
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const hora = (iso) => (iso || "").slice(11, 16);
 
-let LISTA = [];
+let LISTA = [], ALBUM = "", PESTANA = "ia", SLIDE = null, SLIDE_MODO = "ia";
+const POSTS = {ia: {slides: []}, elegidas: {slides: []}};
+const CAMBIOS = {ia: [], elegidas: []};
+let FOTOS = [], MARCADAS = new Set(), ULTIMA = null, GUARDAR = null;
 
-function avisar(texto) {
+function avisar(texto, bien) {
   $("aviso").textContent = texto || "";
   $("aviso").classList.toggle("visible", !!texto);
+  $("aviso").classList.toggle("bien", !!bien);
 }
+
+// --- casamientos -----------------------------------------------------------------------------
 
 async function cargarAlbumes(preferido) {
   LISTA = await get("/api/albumes");
   $("album").innerHTML = LISTA.map(a =>
-    `<option value="${a.nombre}">${a.nombre} — ${a.fotos} fotos${a.curado ? " · armado " + a.cuando : ""}</option>`
+    `<option value="${esc(a.nombre)}">${esc(a.nombre)} — ${a.fotos} fotos${a.curado ? " · armado " + a.cuando : ""}</option>`
   ).join("");
-  const elegido = LISTA.find(a => a.nombre === preferido)
-                  || LISTA.find(a => a.nombre === ALBUM)
+  const elegido = LISTA.find(a => a.nombre === preferido) || LISTA.find(a => a.nombre === ALBUM)
                   || LISTA.find(a => a.curado) || LISTA[0];
   if (!elegido) {
     ALBUM = "";
-    POST = {slides: [], suplentes: [], capitulos: []};
-    $("slides").innerHTML = "";
-    $("capitulos").innerHTML = "";
-    $("estado").innerHTML = "";
-    $("vacio").style.display = "block";
-    $("vacio").innerHTML = "Todavía no hay ningún casamiento.<br>" +
-      "Tocá <b>Agregar casamiento…</b> y elegí la carpeta con las fotos.";
-    pintarQuitar();
+    for (const m of ["ia", "elegidas"]) { POSTS[m] = {slides: []}; pintarPost(m); }
+    $("vacio-ia").innerHTML = "Todavía no hay ningún casamiento.<br>Tocá <b>Agregar casamiento…</b> y elegí la carpeta con las fotos.";
+    pintarAlbum();
     return;
   }
   $("album").value = elegido.nombre;
   ALBUM = elegido.nombre;
-  pintarQuitar();
-  await cargarPost();
+  await cambiarAlbum();
 }
 
-function pintarQuitar() {
-  const a = LISTA.find(x => x.nombre === ALBUM);
+function albumActual() { return LISTA.find(x => x.nombre === ALBUM); }
+
+function pintarAlbum() {
+  const a = albumActual();
   $("quitar").style.display = a && a.agregado ? "" : "none";
+  $("carpeta-interna").style.display = a && a.carpeta_elegidas ? "" : "none";
+  $("n-elegidas").textContent = a && a.elegidas ? `· ${a.elegidas}` : "";
 }
 
-async function cargarPost() {
-  POST = await get("/api/post?album=" + encodeURIComponent(ALBUM));
-  CAMBIOS = [];
-  pintarBarra();
-  $("vacio").style.display = POST.slides.length ? "none" : "block";
-  $("capitulos").innerHTML = (POST.capitulos || []).map(c =>
-    `<div><b>${c.capitulo}</b> ${(c.desde || "").slice(11, 16)}–${(c.hasta || "").slice(11, 16)} · ${c.fotos} momentos</div>`
-  ).join("");
-  const fotos = POST.slides.reduce((n, s) => n + (s.fotos || []).length, 0);
-  $("estado").innerHTML = POST.slides.length
-    ? `<b>${POST.slides.length} slides</b> · ${fotos} fotos`
-    : "";
-  $("slides").innerHTML = POST.slides.map(s => `
+let MOSTRADO = null;
+async function cambiarAlbum() {
+  // Refrescar el mismo casamiento no borra el aviso ni los cambios anotados: sólo cambiar de uno
+  if (MOSTRADO !== ALBUM) { avisar(""); CAMBIOS.ia = []; CAMBIOS.elegidas = []; }
+  MOSTRADO = ALBUM;
+  FOTOS = []; MARCADAS = new Set();
+  pintarAlbum();
+  await Promise.all([cargarPost("ia"), cargarPost("elegidas"), cargarElegidas()]);
+  if (PESTANA === "elegir") await cargarFotos();
+}
+
+// --- posts -----------------------------------------------------------------------------------
+
+async function cargarPost(modo) {
+  POSTS[modo] = ALBUM ? await get(`/api/post?album=${enc(ALBUM)}&modo=${modo}`) : {slides: []};
+  pintarPost(modo);
+}
+
+function pintarPost(modo) {
+  const P = POSTS[modo];
+  $("capitulos-" + modo).innerHTML = (P.capitulos || []).map(c =>
+    `<div><b>${esc(c.capitulo)}</b> ${hora(c.desde)}–${hora(c.hasta)} · ${c.fotos} momentos</div>`).join("");
+  const fotos = P.slides.reduce((n, s) => n + (s.fotos || []).length, 0);
+  $("estado-" + modo).innerHTML = P.slides.length ? `<b>${P.slides.length} slides</b> · ${fotos} fotos` : "";
+  $("vacio-" + modo).style.display = P.slides.length ? "none" : "block";
+  if (modo === "elegidas") {
+    const n = (albumActual() || {}).elegidas || 0;
+    $("vacio-elegidas").innerHTML = n
+      ? `Hay <b>${n} fotos elegidas</b>. Tocá <b>Armar el post con mis elegidas</b>: entran todas, repartidas en collages.`
+      : "Todavía no elegiste fotos. Marcalas en el álbum, arrastralas acá, o usá una carpeta donde las hayas copiado.";
+    $("curar-elegidas").disabled = !n;
+  }
+  const t = Date.now();
+  $("slides-" + modo).innerHTML = P.slides.map(s => `
     <div class="slide" data-n="${s.slide}">
-      <img src="/slide?album=${encodeURIComponent(ALBUM)}&n=${s.slide}&t=${Date.now()}" loading="lazy" alt="">
+      <img src="/slide?album=${enc(ALBUM)}&modo=${modo}&n=${s.slide}&t=${t}" loading="lazy" alt="">
       <div class="pie"><b>${String(s.slide).padStart(2, "0")}</b>
-        <span>${s.capitulo}</span>
+        <span>${esc(s.capitulo)}</span>
         <span>${s.plantilla === "sola" || s.plantilla === "entera" ? "sola" : (s.fotos || []).length + " fotos"}</span>
       </div>
     </div>`).join("");
-  document.querySelectorAll(".slide").forEach(el =>
-    el.onclick = () => abrirSlide(Number(el.dataset.n)));
+  $("slides-" + modo).querySelectorAll(".slide").forEach(el =>
+    el.onclick = () => abrirSlide(modo, Number(el.dataset.n)));
+  pintarBarra();
 }
 
-function abrirSlide(n) {
-  SLIDE = POST.slides.find(s => s.slide === n);
+function abrirSlide(modo, n) {
+  SLIDE_MODO = modo;
+  SLIDE = POSTS[modo].slides.find(s => s.slide === n);
   if (!SLIDE) return;
-  $("modal-img").src = `/slide?album=${encodeURIComponent(ALBUM)}&n=${n}&t=${Date.now()}`;
+  const elegidas = modo === "elegidas";
+  $("modal-img").src = `/slide?album=${enc(ALBUM)}&modo=${modo}&n=${n}&t=${Date.now()}`;
   $("modal-titulo").textContent = `Slide ${String(n).padStart(2, "0")} · ${SLIDE.capitulo}`;
-  $("modal-info").textContent =
-    `${SLIDE.plantilla} · ${(SLIDE.taken || "").slice(11, 16)} · ${SLIDE.motivo || ""}`;
+  $("modal-info").textContent = `${SLIDE.plantilla} · ${hora(SLIDE.taken)} · ${SLIDE.motivo || ""}`;
+  $("btn-sola").textContent = elegidas && (SLIDE.detalle || []).length > 1 ? "Que vayan solas" : "Que vaya sola";
   $("modal-fotos").innerHTML = (SLIDE.detalle || []).map(f => `
-    <div class="foto"><img src="/thumb?album=${encodeURIComponent(ALBUM)}&key=${f.key}" loading="lazy" alt="">
-      <span>${f.name}</span></div>`).join("");
-  const cerca = (POST.suplentes || [])
+    <div class="foto"><img src="/thumb?album=${enc(ALBUM)}&key=${f.key}" loading="lazy" alt="">
+      ${elegidas ? `<button class="sacar" data-name="${esc(f.name)}" title="Sacar esta foto del post">✕</button>` : ""}
+      <span>${esc(f.name)}</span></div>`).join("");
+  $("modal-fotos").querySelectorAll(".sacar").forEach(b =>
+    b.onclick = () => agregarCambio(`- ${b.dataset.name}`));
+  $("titulo-alternativas").textContent = elegidas
+    ? "Sumar al post otra foto de este momento del día"
+    : "Cambiarla por otra de este momento del día";
+  const cerca = (POSTS[modo].suplentes || [])
     .filter(s => s.bloque === SLIDE.bloque || s.capitulo === SLIDE.capitulo)
-    .sort((a, b) => (a.bloque === SLIDE.bloque ? -1 : 1) - (b.bloque === SLIDE.bloque ? -1 : 1)
-                    || b.score - a.score)
+    .sort((a, b) => (a.bloque === SLIDE.bloque ? -1 : 1) - (b.bloque === SLIDE.bloque ? -1 : 1) || b.score - a.score)
     .slice(0, 36);
   $("modal-alternativas").innerHTML = cerca.length ? cerca.map(f => `
-    <div class="foto" data-name="${f.name}">
-      <img src="/thumb?album=${encodeURIComponent(ALBUM)}&key=${f.key}" loading="lazy" alt="">
-      <span>${f.name} · ${(f.taken || "").slice(11, 16)}</span></div>`).join("")
+    <div class="foto" data-name="${esc(f.name)}">
+      <img src="/thumb?album=${enc(ALBUM)}&key=${f.key}" loading="lazy" alt="">
+      <span>${esc(f.name)} · ${hora(f.taken)}</span></div>`).join("")
     : `<div style="color:var(--suave)">No quedaron suplentes de este tramo.</div>`;
-  document.querySelectorAll("#modal-alternativas .foto").forEach(el =>
-    el.onclick = () => agregarCambio(`${SLIDE.slide} ${el.dataset.name}`));
+  $("modal-alternativas").querySelectorAll(".foto").forEach(el =>
+    el.onclick = () => agregarCambio(elegidas ? `+ ${el.dataset.name}` : `${SLIDE.slide} ${el.dataset.name}`));
   $("fondo-modal").classList.add("abierto");
 }
 
 function cerrar() { $("fondo-modal").classList.remove("abierto"); }
 
 function agregarCambio(linea) {
-  const n = linea.split(" ")[0];
-  CAMBIOS = CAMBIOS.filter(c => c.split(" ")[0] !== n);   // una orden por slide
-  CAMBIOS.push(linea);
+  const lista = CAMBIOS[SLIDE_MODO];
+  const clave = (l) => /^[+-] /.test(l) ? l : l.split(" ")[0];     // una orden por slide, o por foto
+  CAMBIOS[SLIDE_MODO] = lista.filter(c => clave(c) !== clave(linea)).concat([linea]);
   pintarBarra();
-  cerrar();
+  if (!/^[+-] /.test(linea)) cerrar();
+  else avisar(`Anotado: ${linea}. Seguí eligiendo o tocá «Aplicar».`, true);
 }
 
+function modoVisible() { return PESTANA === "elegidas" ? "elegidas" : "ia"; }
+
 function pintarBarra() {
-  $("barra").classList.toggle("hay", CAMBIOS.length > 0);
-  $("resumen-cambios").textContent = CAMBIOS.length === 1 ? "1 cambio:" : `${CAMBIOS.length} cambios:`;
-  $("lista-cambios").innerHTML = CAMBIOS.map(c => `<code>${c}</code>`).join(" ");
-  document.querySelectorAll(".slide").forEach(el => {
-    const orden = CAMBIOS.find(c => c.split(" ")[0] === el.dataset.n);
+  const modo = modoVisible();
+  const lista = PESTANA === "elegir" ? [] : CAMBIOS[modo];
+  $("barra").classList.toggle("hay", lista.length > 0);
+  $("resumen-cambios").textContent = lista.length === 1 ? "1 cambio:" : `${lista.length} cambios:`;
+  $("lista-cambios").innerHTML = lista.map(c => `<code>${esc(c)}</code>`).join(" ");
+  $("slides-" + modo).querySelectorAll(".slide").forEach(el => {
+    const orden = lista.find(c => c.split(" ")[0] === el.dataset.n);
     el.classList.toggle("tocada", !!orden);
     el.classList.toggle("fuera", !!orden && orden.endsWith(" fuera"));
   });
 }
 
-async function seguir(hasta) {
+async function seguir() {
   $("consola").classList.add("visible");
-  $("curar").disabled = $("aplicar").disabled = true;
+  const botones = ["curar", "curar-elegidas", "aplicar", "entrenar", "listo-elegir"];
+  botones.forEach(b => $(b).disabled = true);
+  let e;
   while (true) {
-    const e = await get("/api/estado");
+    e = await get("/api/estado");
     $("consola").textContent = e.lineas.join("\n");
     $("consola").scrollTop = $("consola").scrollHeight;
     if (!e.corriendo && e.lineas.length) break;
     await new Promise(r => setTimeout(r, 900));
   }
-  $("curar").disabled = $("aplicar").disabled = false;
-  await cargarPost();
-  if (hasta) hasta();
+  botones.forEach(b => $(b).disabled = false);
+  const fin = e.lineas[e.lineas.length - 1] || "";
+  await cargarAlbumes(ALBUM);
+  cargarModelo();
+  if (fin.startsWith("terminó con error")) {
+    avisar("Algo falló: el detalle está en la consola, arriba.");
+  } else {
+    // Salió bien: la consola se guarda y queda un resumen, con el detalle a un clic
+    $("consola").classList.remove("visible");
+    const ojo = e.lineas.filter(l => /ojo:|no entraron|no están/.test(l)).slice(0, 3);
+    avisar("Listo." + (ojo.length ? " " + ojo.map(l => l.trim()).join(" · ") : ""), !ojo.length);
+    const ver = document.createElement("a");
+    ver.textContent = " Ver el detalle";
+    ver.href = "#";
+    ver.style.color = "inherit";
+    ver.onclick = (ev) => { ev.preventDefault(); $("consola").classList.toggle("visible"); };
+    $("aviso").appendChild(ver);
+  }
 }
 
-$("album").onchange = async (e) => {
-  ALBUM = e.target.value; avisar(""); pintarQuitar(); await cargarPost();
+async function correr(url, datos) {
+  const r = await post(url, datos);
+  if (r.error) { avisar(r.error); return; }
+  seguir();
+}
+
+// --- elegidas --------------------------------------------------------------------------------
+
+async function cargarElegidas() {
+  if (!ALBUM) return;
+  const r = await get(`/api/elegidas?album=${enc(ALBUM)}`);
+  MARCADAS = new Set(r.elegidas.map(e => e.name));
+  pintarCuenta();
+}
+
+function resultadoElegidas(r, origen) {
+  if (r.error) { avisar(r.error); return; }
+  if (r.ok === false) return;                       // canceló el diálogo
+  let texto = `${origen}: ahora hay ${r.elegidas} fotos elegidas.`;
+  if (r.cuantas_faltan) texto += ` ${r.cuantas_faltan} no están en este álbum (${r.faltan.slice(0, 6).join(", ")}${r.cuantas_faltan > 6 ? "…" : ""}).`;
+  avisar(texto, !r.cuantas_faltan);
+  cargarAlbumes(ALBUM);
+}
+
+async function sumarNombres(nombres, origen) {
+  if (!nombres.length) return;
+  const r = await post("/api/elegidas", {album: ALBUM, nombres, sumar: $("sumar").checked});
+  resultadoElegidas(r, origen);
+}
+
+// Arrastrar fotos desde el Finder: el navegador da los nombres sin tener que subir nada
+const zona = $("soltar");
+["dragenter", "dragover"].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.add("encima"); }));
+["dragleave", "drop"].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.remove("encima"); }));
+zona.addEventListener("drop", e => sumarNombres([...e.dataTransfer.files].map(f => f.name), `${e.dataTransfer.files.length} fotos arrastradas`));
+$("archivos").onchange = (e) => { sumarNombres([...e.target.files].map(f => f.name), `${e.target.files.length} fotos`); e.target.value = ""; };
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => e.preventDefault());
+
+$("carpeta-elegidas").onclick = async () => {
+  avisar("");
+  resultadoElegidas(await post("/api/elegidas-carpeta", {album: ALBUM, sumar: $("sumar").checked}), "Carpeta");
 };
+$("carpeta-interna").onclick = async () =>
+  resultadoElegidas(await post("/api/elegidas-carpeta", {album: ALBUM, interna: true, sumar: $("sumar").checked}), "Carpeta «elegidas»");
+$("todas").onclick = async () => {
+  const a = albumActual();
+  if (!a || !confirm(`Usar las ${a.fotos} fotos de «${ALBUM}» como elegidas?\n\nSirve cuando la carpeta ya es sólo lo que elegiste.`)) return;
+  resultadoElegidas(await post("/api/elegidas-todas", {album: ALBUM}), "Todas las fotos");
+};
+$("curar-elegidas").onclick = () =>
+  correr("/api/curar", {album: ALBUM, modo: "elegidas", slides: Number($("tope").value)});
+
+// --- el selector de fotos --------------------------------------------------------------------
+
+async function cargarFotos() {
+  if (!ALBUM) return;
+  const r = await get(`/api/fotos?album=${enc(ALBUM)}`);
+  FOTOS = r.fotos;
+  if (!r.preparado) {
+    $("grilla-fotos").innerHTML = "";
+    $("vacio-elegir").style.display = "block";
+    $("vacio-elegir").innerHTML = (FOTOS.length ? `Hay miniaturas de ${FOTOS.length} de ${r.total} fotos. ` : "") +
+      `Para marcar fotos hace falta preparar las miniaturas (la primera vez tarda unos minutos).<br><br>` +
+      `<button class="principal" id="preparar">Preparar las miniaturas</button>`;
+    $("preparar").onclick = async () => { await correr("/api/preparar", {album: ALBUM}); };
+    return;
+  }
+  $("vacio-elegir").style.display = "none";
+  $("solo-principal").parentElement.style.display = r.analizado ? "" : "none";
+  pintarFotos();
+}
+
+function visibles() {
+  const principal = $("solo-principal").checked, marcadas = $("solo-marcadas").checked;
+  return FOTOS.filter(f => (!principal || f.principal !== false || MARCADAS.has(f.name))
+                        && (!marcadas || MARCADAS.has(f.name)));
+}
+
+function pintarFotos() {
+  const lista = visibles();
+  let html = "", cabecera = "";
+  lista.forEach((f, i) => {
+    // Un título por capítulo (si la IA ya lo analizó) o por hora, para ubicarse en el día
+    const titulo = f.capitulo ? `${f.capitulo}` : (f.taken ? `${hora(f.taken).slice(0, 2)} h` : "sin hora");
+    if (titulo !== cabecera) {
+      cabecera = titulo;
+      html += `<div class="hora-titulo"><b>${esc(titulo)}</b> · desde las ${hora(f.taken) || "—"}</div>`;
+    }
+    html += `<div class="ft${MARCADAS.has(f.name) ? " si" : ""}" data-i="${i}" title="${esc(f.name)} · ${hora(f.taken)}">
+      <img src="/mini?album=${enc(ALBUM)}&key=${f.key}" loading="lazy" alt="">
+      ${f.rafaga > 1 ? `<span class="ia">×${f.rafaga}</span>` : ""}
+      <span class="tick"></span><span class="nm">${esc(f.name)} · ${hora(f.taken)}</span></div>`;
+  });
+  $("grilla-fotos").innerHTML = html || `<div class="vacio">No hay fotos para mostrar con estos filtros.</div>`;
+  $("grilla-fotos").querySelectorAll(".ft").forEach(el => el.onclick = (e) => tocar(lista, Number(el.dataset.i), e.shiftKey));
+  pintarCuenta();
+}
+
+function tocar(lista, i, rango) {
+  const f = lista[i];
+  const marcar = !MARCADAS.has(f.name);
+  const [a, b] = rango && ULTIMA !== null ? [Math.min(ULTIMA, i), Math.max(ULTIMA, i)] : [i, i];
+  for (let j = a; j <= b; j++) {
+    marcar ? MARCADAS.add(lista[j].name) : MARCADAS.delete(lista[j].name);
+    const el = $("grilla-fotos").querySelector(`.ft[data-i="${j}"]`);
+    if (el) el.classList.toggle("si", marcar);
+  }
+  ULTIMA = i;
+  pintarCuenta();
+  guardarMarcadas();
+}
+
+function pintarCuenta() {
+  const n = MARCADAS.size;
+  $("cuenta-elegir").textContent = n === 1 ? "1 marcada" : `${n} marcadas`;
+  $("listo-elegir").disabled = !n;
+  $("n-elegidas").textContent = n ? `· ${n}` : "";
+}
+
+function guardarMarcadas() {
+  // Se guarda solo, un momento después del último clic: así no se pierde nada si cierra la página
+  clearTimeout(GUARDAR);
+  GUARDAR = setTimeout(async () => {
+    const orden = FOTOS.filter(f => MARCADAS.has(f.name)).map(f => f.name);
+    await post("/api/elegidas", {album: ALBUM, nombres: orden, sumar: false});
+    const a = albumActual();
+    if (a) a.elegidas = orden.length;
+  }, 500);
+}
+
+$("solo-principal").onchange = $("solo-marcadas").onchange = () => { ULTIMA = null; pintarFotos(); };
+$("desmarcar").onclick = () => {
+  if (!MARCADAS.size || !confirm(`Desmarcar las ${MARCADAS.size} fotos?`)) return;
+  MARCADAS = new Set(); pintarFotos(); guardarMarcadas();
+};
+$("marcar-ia").onclick = () => {
+  const nombres = (POSTS.ia.slides || []).flatMap(s => (s.detalle || []).map(d => d.name));
+  if (!nombres.length) { avisar("Todavía no hay post de la IA para este casamiento: armalo primero en la otra pestaña."); return; }
+  nombres.forEach(n => MARCADAS.add(n));
+  pintarFotos(); guardarMarcadas();
+  avisar(`Se marcaron las ${nombres.length} fotos del post de la IA. Sacá o sumá las que quieras.`, true);
+};
+$("listo-elegir").onclick = async () => {
+  clearTimeout(GUARDAR);
+  const orden = FOTOS.filter(f => MARCADAS.has(f.name)).map(f => f.name);
+  const r = await post("/api/elegidas", {album: ALBUM, nombres: orden, sumar: false});
+  if (r.error) { avisar(r.error); return; }
+  mostrar("elegidas");
+  correr("/api/curar", {album: ALBUM, modo: "elegidas", slides: Number($("tope").value)});
+};
+
+// --- pestañas, botones generales -------------------------------------------------------------
+
+function mostrar(p) {
+  PESTANA = p;
+  document.querySelectorAll("nav.pestanas button").forEach(b => b.classList.toggle("activa", b.dataset.p === p));
+  document.querySelectorAll(".panel").forEach(el => el.classList.toggle("activo", el.id === "panel-" + p));
+  if (p === "elegir") cargarFotos();
+  pintarBarra();
+}
+document.querySelectorAll("nav.pestanas button").forEach(b => b.onclick = () => mostrar(b.dataset.p));
+$("ir-elegir").onclick = () => mostrar("elegir");
+
+$("album").onchange = async (e) => { ALBUM = e.target.value; await cambiarAlbum(); };
 
 async function sumarCarpeta(ruta) {
   const r = await post("/api/agregar", {ruta});
   if (r.error) { avisar(r.error); return false; }
   await cargarAlbumes(r.nombre);
-  avisar(r.repetido
-    ? `"${r.nombre}" ya estaba en la lista.`
-    : `"${r.nombre}" agregado, ${r.fotos} fotos. Tocá "Armar el post".`);
+  avisar(r.repetido ? `"${r.nombre}" ya estaba en la lista.`
+                    : `"${r.nombre}" agregado, ${r.fotos} fotos. Armá el post de la IA, o elegí vos las fotos.`, true);
   return true;
 }
 
-function pedirARano(motivo) {
+function pedirAMano(motivo) {
   avisar(motivo);
   $("ruta-mano").classList.add("visible");
   $("ruta").focus();
@@ -312,55 +649,74 @@ $("agregar").onclick = async () => {
   try {
     const elegida = await post("/api/elegir", {});
     // Si el diálogo del sistema no abre, queda el plan B: pegar o arrastrar la carpeta
-    if (elegida.error) { pedirARano(elegida.error + "."); return; }
+    if (elegida.error) { pedirAMano(elegida.error + "."); return; }
     if (!elegida.ruta) return;                       // canceló
     await sumarCarpeta(elegida.ruta);
   } catch (err) {
-    pedirARano("No se pudo abrir el diálogo de carpetas.");
+    pedirAMano("No se pudo abrir el diálogo de carpetas.");
   } finally {
     $("agregar").disabled = false;
   }
 };
-
 $("ruta-ok").onclick = async () => {
   const ruta = $("ruta").value.trim();
-  if (!ruta) return;
-  if (await sumarCarpeta(ruta)) {
-    $("ruta").value = "";
-    $("ruta-mano").classList.remove("visible");
-  }
+  if (ruta && await sumarCarpeta(ruta)) { $("ruta").value = ""; $("ruta-mano").classList.remove("visible"); }
 };
 $("ruta").onkeydown = (e) => { if (e.key === "Enter") $("ruta-ok").click(); };
-$("ruta-cerrar").onclick = () => {
-  $("ruta-mano").classList.remove("visible"); avisar("");
-};
+$("ruta-cerrar").onclick = () => { $("ruta-mano").classList.remove("visible"); avisar(""); };
 
 $("quitar").onclick = async () => {
-  const a = LISTA.find(x => x.nombre === ALBUM);
+  const a = albumActual();
   if (!a || !confirm(`Sacar "${ALBUM}" de la lista?\n\nNo se borra ninguna foto ni el post ya armado: sólo deja de aparecer acá.`)) return;
   const r = await post("/api/quitar", {album: ALBUM});
   if (r.error) { avisar(r.error); return; }
   ALBUM = "";
   await cargarAlbumes();
-  avisar(`"${r.nombre}" salió de la lista. Las fotos siguen donde estaban.`);
+  avisar(`"${r.nombre}" salió de la lista. Las fotos siguen donde estaban.`, true);
 };
-$("curar").onclick = async () => { await post("/api/curar", {album: ALBUM}); seguir(); };
+
+$("curar").onclick = () => correr("/api/curar", {album: ALBUM, modo: "ia"});
 $("aplicar").onclick = async () => {
-  await post("/api/cambios", {album: ALBUM, lineas: CAMBIOS});
-  CAMBIOS = []; pintarBarra(); seguir();
+  const modo = modoVisible();
+  const r = await post("/api/cambios", {album: ALBUM, modo, lineas: CAMBIOS[modo]});
+  CAMBIOS[modo] = []; pintarBarra();
+  if (r.error) { avisar(r.error); return; }
+  avisar("");
+  seguir();
 };
-$("descartar").onclick = () => { CAMBIOS = []; pintarBarra(); };
+$("descartar").onclick = () => { CAMBIOS[modoVisible()] = []; pintarBarra(); avisar(""); };
 $("btn-cerrar").onclick = cerrar;
 $("btn-sola").onclick = () => agregarCambio(`${SLIDE.slide} sola`);
 $("btn-fuera").onclick = () => agregarCambio(`${SLIDE.slide} fuera`);
 $("fondo-modal").onclick = (e) => { if (e.target === $("fondo-modal")) cerrar(); };
-$("abrir-carpeta").onclick = async () => {
-  const r = await post("/api/abrir", {album: ALBUM});
-  if (r.error) avisar(r.error + ". Curá el casamiento primero.");
-};
+for (const modo of ["ia", "elegidas"]) {
+  $("abrir-" + modo).onclick = async () => {
+    const r = await post("/api/abrir", {album: ALBUM, modo});
+    if (r.error) avisar(r.error + ": armá el post primero.");
+  };
+}
 document.onkeydown = (e) => { if (e.key === "Escape") cerrar(); };
 
-cargarAlbumes();
+// --- el modelo -------------------------------------------------------------------------------
+
+async function cargarModelo() {
+  const m = await get("/api/modelo");
+  $("modelo").innerHTML = m.entrenado
+    ? `modelo: <b>${m.casamientos || "?"} casamientos</b><br>${m.positivos || "?"} fotos suyas · ${m.cuando || ""}`
+    : "sin entrenar todavía";
+}
+$("entrenar").onclick = () => {
+  if (!confirm("Entrenar con todo lo que hay?\n\nUsa lo que publicó (una carpeta «publicado» adentro de cada álbum, con las slides) y las fotos que elegiste acá. Si hay álbumes sin analizar, tarda unos minutos.")) return;
+  correr("/api/entrenar", {});
+};
+
+(async () => {
+  cargarModelo();
+  await cargarAlbumes();
+  // Si quedó algo corriendo (se recargó la página), se sigue mirando
+  const e = await get("/api/estado");
+  if (e.corriendo) seguir();
+})();
 </script>
 </body>
 </html>

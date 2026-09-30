@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lib import album as album_lib
 from lib import changes, dedup, embed, models, moments, quality, selection, sheet, style
+from lib import elegidas as elegidas_lib
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = ROOT / "config.json"
@@ -147,6 +148,8 @@ def preference_scores(album: Path, photos: list, embeddings: dict) -> dict[str, 
     del álbum y no el valor crudo, porque el parecido entre fotos de casamiento vive en un rango
     angosto.
     """
+    if not embeddings:
+        return None
     if MODELO_PREFERENCIA.is_file():
         puntajes = _preference_model(album, photos, embeddings)
         if puntajes is not None:
@@ -264,7 +267,7 @@ def plan_signature(config: dict) -> str:
 
 
 def build_post(album: Path, out: Path, slides: list, representantes: list, config: dict,
-               photos: list, embeddings: dict | None = None) -> None:
+               photos: list, embeddings: dict | None = None, planear: bool = True) -> None:
     """Arma las slides desde los originales: sola a sangre, entera sobre gris, o collage."""
     from lib import montage
 
@@ -284,13 +287,15 @@ def build_post(album: Path, out: Path, slides: list, representantes: list, confi
                 previo = {s["rel"]: s for s in datos.get("slides", [])}
         except (json.JSONDecodeError, KeyError):
             previo = {}
-    montage.plan(slides, pool, config, previo, {p.rel: p for p in photos}, embeddings)
+    if planear:
+        montage.plan(slides, pool, config, previo, {p.rel: p for p in photos}, embeddings)
 
     destino = out / "slides"
     if destino.is_dir():
         for viejo in destino.glob("*.jpg"):
             viejo.unlink()
     print("Montaje (desde los originales):", flush=True)
+    armado = datetime.now().replace(microsecond=0)
     previas, fotos_totales, cortadas = [], 0, []
     for entry in slides:
         fotos = entry["fotos"]
@@ -304,7 +309,7 @@ def build_post(album: Path, out: Path, slides: list, representantes: list, confi
             entry["render"] = tipo
         entry["cortes"] = cortes
         dest = destino / f"{entry['slide']:02d}.jpg"
-        montage.save(img, dest)
+        montage.save(img, dest, orden=entry["slide"], base=armado)
         fotos_totales += len(fotos)
         for photo, corte in zip(fotos, cortes):
             if corte > 0.15:
@@ -331,6 +336,84 @@ def build_post(album: Path, out: Path, slides: list, representantes: list, confi
         hoja.paste(previa, (8 + (i % cols) * 278, 8 + (i // cols) * 346))
     hoja.save(out / "post.jpg", "JPEG", quality=88)
     print(f"  post.jpg  {hoja.width}x{hoja.height}  (el carrusel completo de un vistazo)", flush=True)
+
+
+def armar_con_elegidas(args, album: Path, out: Path, photos: list, representantes: list,
+                       config: dict, n_slides: int, archivo_cambios: Path) -> tuple[list, str, int]:
+    """Modo 'con mis elegidas': entran todas las fotos que eligió él, repartidas en collages.
+
+    La lista vive en out/elegidas.txt, que es la fuente de verdad: la primera vez se arma desde lo
+    que se pasó (una carpeta, un archivo o --todas), y después los cambios a mano se guardan ahí.
+    """
+    import bisect
+
+    lista_path = out / elegidas_lib.ARCHIVO
+    por_nombre: dict = {}
+    for p in photos:
+        por_nombre.setdefault(p.name.lower(), p)
+
+    # Una lista que ya existe manda sobre lo que se pase: tiene los cambios a mano de corridas
+    # anteriores, y volver a copiarla desde la carpeta o el archivo original los desharía
+    fuente = Path(args.elegidas).expanduser().resolve() if args.elegidas else None
+    if fuente is not None and not fuente.exists():
+        sys.exit(f"No existe {fuente}")
+    if fuente is not None and fuente.is_file() and fuente == lista_path.resolve():
+        pass                                     # la interfaz pasa la lista misma
+    elif lista_path.is_file():
+        if fuente is not None or args.todas:
+            print(f"  se usa la lista que ya estaba en {lista_path} (borrarla para empezar de "
+                  f"nuevo desde lo que se pasó)", flush=True)
+    elif args.todas:
+        elegidas_lib.guardar(lista_path, [(p.name, False) for p in photos])
+    elif fuente is not None and fuente.is_dir():
+        elegidas_lib.guardar(lista_path, elegidas_lib.desde_carpeta(fuente))
+    elif fuente is not None:
+        elegidas_lib.guardar(lista_path, elegidas_lib.leer(fuente))
+    items = elegidas_lib.leer(lista_path)
+
+    items, hechos = elegidas_lib.aplicar_cambios(archivo_cambios, out / "seleccion.json",
+                                                 items, por_nombre)
+    if hechos:
+        print(f"Cambios pedidos ({len(hechos)}):", flush=True)
+        for linea in hechos:
+            print(f"  {linea}", flush=True)
+        elegidas_lib.guardar(lista_path, items)
+
+    faltan = [n for n, _ in items if n.lower() not in por_nombre]
+    elegidas = [por_nombre[n.lower()] for n, _ in items if n.lower() in por_nombre]
+    solas = {por_nombre[n.lower()].name for n, s in items if s and n.lower() in por_nombre}
+    print(f"Con sus elegidas: {len(elegidas)} fotos", flush=True)
+    if faltan:
+        print(f"  ojo: {len(faltan)} de la lista no están en el álbum: "
+              f"{', '.join(faltan[:10])}{'…' if len(faltan) > 10 else ''}", flush=True)
+    if not elegidas:
+        sys.exit("Ninguna de las elegidas está en el álbum: revisar que los nombres coincidan")
+
+    # Las elegidas que no son la representante de su ráfaga no tienen tramo del día: se les da
+    # el de la representante más cercana en la hora
+    marcas = [(p.taken or "", p) for p in representantes]
+    horas = [m[0] for m in marcas]
+    for p in elegidas:
+        if "bloque" in p.metrics or not marcas:
+            continue
+        i = min(bisect.bisect_left(horas, p.taken or ""), len(marcas) - 1)
+        vecinas = [marcas[j][1] for j in (i - 1, i) if 0 <= j < len(marcas)]
+        cerca = min(vecinas, key=lambda r: abs(
+            (r.taken_dt() - p.taken_dt()).total_seconds()) if r.taken_dt() and p.taken_dt() else 0)
+        p.metrics["bloque"] = cerca.metrics.get("bloque", 0)
+        p.metrics["capitulo"] = cerca.metrics.get("capitulo", "?")
+
+    # Lo que eligió él de un álbum completo es la mejor etiqueta que existe: se guarda para
+    # entrenar (entrenar_todo.py la usa igual que lo que publicó)
+    if not args.todas and len(elegidas) <= 0.5 * len(photos):
+        cache = album / album_lib.CACHE_DIRNAME
+        (cache / "elegidas.json").write_text(json.dumps({
+            "album": str(album), "generado": datetime.now().isoformat(timespec="seconds"),
+            "elegidas": sorted(p.rel for p in elegidas),
+        }, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    slides, afuera, aviso = elegidas_lib.pack(elegidas, solas, n_slides, config)
+    return slides, aviso, len(elegidas)
 
 
 def describe(photos: list) -> None:
@@ -361,6 +444,13 @@ def main() -> None:
     parser.add_argument("--modelos", action="store_true", help="baja los modelos de cara y sale")
     parser.add_argument("--sin-montaje", action="store_true",
                         help="elige las slides pero no las arma (más rápido para probar parámetros)")
+    parser.add_argument("--elegidas", help="modo 'con mis elegidas': un elegidas.txt con los nombres, "
+                        "o una carpeta con copias de las fotos que eligió. Entran todas al post")
+    parser.add_argument("--todas", action="store_true",
+                        help="modo 'con mis elegidas' usando todas las fotos de la carpeta")
+    parser.add_argument("--slides", type=int, help="tope de slides (por defecto post.slides de config.json)")
+    parser.add_argument("--preparar", action="store_true",
+                        help="sólo arma las miniaturas (para elegir fotos desde la interfaz) y sale")
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args()
 
@@ -401,12 +491,21 @@ def main() -> None:
     if not photos:
         sys.exit("No se encontraron fotos que se puedan abrir (los RAW hay que exportarlos antes)")
     describe(photos)
+    if args.preparar:
+        print(f"Miniaturas listas: {len(photos)} fotos", flush=True)
+        return
 
     analyze(photos, album, args.workers, couple)
     album_lib.save_index(album / album_lib.CACHE_DIRNAME, photos)
 
     modelo, peso_estilo = load_style(config)
-    embeddings = embed.for_album(album, photos, album_lib.thumb_path)
+    try:
+        embeddings = embed.for_album(album, photos, album_lib.thumb_path)
+    except (SystemExit, Exception) as err:        # noqa: BLE001 - sin CLIP se sigue igual
+        # Sin CLIP (no se pudo bajar el modelo, o no hay onnxruntime) el post se arma igual,
+        # ordenado por técnica y caras: peor, pero mejor que no tener nada
+        print(f"  ojo: sin el modelo de contenido (CLIP), la preferencia no ordena: {err}", flush=True)
+        embeddings = None
     preferencia = preference_scores(album, photos, embeddings)
     scored = quality.score_album([p.metrics for p in photos])
     for photo, data in zip(photos, scored):
@@ -476,7 +575,7 @@ def main() -> None:
     print("  (el corte sale de las pausas reales del día; el nombre es una heurística "
           "y se puede cambiar en config.json)", flush=True)
 
-    n_slides = post.get("slides", 20)
+    n_slides = min(args.slides or post.get("slides", 20), 20)
     if post.get("reparto", "proporcional") == "proporcional":
         # Proporcional a cuántos momentos tiene cada bloque del día, corregido por el sesgo de
         # cada capítulo: la cámara dispara muchísimo en la fiesta y él no la publica en esa
@@ -487,21 +586,29 @@ def main() -> None:
         unidades, cupos, unidad = list(tamanos), selection.proportional(tamanos, n_slides), "bloque"
     else:
         unidades, cupos, unidad = capitulos, post.get("cupos", {}), "capitulo"
-    slides, aviso = selection.pick(
-        representantes, unidades, cupos, n_slides, post.get("apertura", "mejor"),
-        embeddings, unidad)
-
-    # Lo que él pidió cambiar en una corrida anterior, si escribió algo en cambios.txt
     archivo_cambios = out / "cambios.txt"
-    pedidos, errores = changes.read(archivo_cambios)
-    for error in errores:
-        print(f"  cambios.txt, {error}", flush=True)
-    if pedidos:
-        print(f"Cambios pedidos en cambios.txt ({len(pedidos)}):", flush=True)
-        for linea in changes.apply(slides, pedidos, photos, album, CORRECCIONES):
-            print(f"  {linea}", flush=True)
+    modo_elegidas = bool(args.elegidas or args.todas)
+    if modo_elegidas:
+        slides, aviso, n_elegidas = armar_con_elegidas(
+            args, album, out, photos, representantes, config, n_slides, archivo_cambios)
+        usadas = [{"photo": p} for e in slides for p in e["fotos"]]
+        suplentes = selection.spares(representantes, usadas, per_chapter=24)
+    else:
+        n_elegidas = None
+        slides, aviso = selection.pick(
+            representantes, unidades, cupos, n_slides, post.get("apertura", "mejor"),
+            embeddings, unidad)
+
+        # Lo que él pidió cambiar en una corrida anterior, si escribió algo en cambios.txt
+        pedidos, errores = changes.read(archivo_cambios)
+        for error in errores:
+            print(f"  cambios.txt, {error}", flush=True)
+        if pedidos:
+            print(f"Cambios pedidos en cambios.txt ({len(pedidos)}):", flush=True)
+            for linea in changes.apply(slides, pedidos, photos, album, CORRECCIONES):
+                print(f"  {linea}", flush=True)
+        suplentes = selection.spares(representantes, slides, per_chapter=24)
     changes.ensure_template(archivo_cambios)
-    suplentes = selection.spares(representantes, slides, per_chapter=24)
     print(f"Post: {len(slides)} slides", flush=True)
     if aviso:
         print(f"  ojo: {aviso}", flush=True)
@@ -514,7 +621,8 @@ def main() -> None:
                 f"{album.name} · las {len(slides)} slides del post, en orden")
 
     if not args.sin_montaje:
-        build_post(album, out, slides, representantes, config, photos, embeddings)
+        build_post(album, out, slides, representantes, config, photos, embeddings,
+                   planear=not modo_elegidas)
     if suplentes:
         sheet.write([_slide_cell(album, e) for e in suplentes], out, "suplentes",
                     f"{album.name} · suplentes por capítulo, para cambiar alguna")
@@ -539,6 +647,8 @@ def main() -> None:
         "album": str(album),
         "generado": datetime.now().isoformat(timespec="seconds"),
         "firma": plan_signature(config),
+        "modo": "elegidas" if modo_elegidas else "ia",
+        "elegidas": n_elegidas,
         "capitulos": moments.describe(representantes, bloques, nombres),
         "slides": [
             {"slide": e["slide"], "capitulo": e["capitulo"], "rel": e["photo"].rel,
@@ -574,7 +684,11 @@ def main() -> None:
             for p, g in zip(photos, groups)
         ],
     }
-    (out / "analisis.json").write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    texto = json.dumps(payload, ensure_ascii=False, indent=1)
+    (out / "analisis.json").write_text(texto, encoding="utf-8")
+    # Una copia en el caché del álbum: el entrenamiento la necesita, y así no depende de dónde
+    # quedó la salida ni de qué modo se usó para armar el post
+    (album / album_lib.CACHE_DIRNAME / "analisis.json").write_text(texto, encoding="utf-8")
     print(f"Salida en {out}", flush=True)
 
 
