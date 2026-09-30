@@ -1,0 +1,11 @@
+# Fases 1 y 2. Todo local, nada de esto manda fotos a ningún lado.
+Pillow>=10.1
+numpy>=2.0
+opencv-python>=4.9     # detección (YuNet), reconocimiento de cara (SFace) y SIFT para verdad.py
+onnxruntime>=1.17      # CLIP, que describe el contenido de cada foto
+
+# Opcional: sólo si se prende "caras.parpadeo" en config.json. Trae telemetría de Google.
+# mediapipe>=0.10
+
+# Los modelos se bajan solos la primera vez a curator/modelos/ (126 MB en total):
+#   python curator/curate.py --modelos

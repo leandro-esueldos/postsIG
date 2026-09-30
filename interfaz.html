@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Armar post · Serrano</title>
+<style>
+  :root {
+    --fondo: #121110; --panel: #1c1a18; --linea: #2e2b28;
+    --texto: #e8e4de; --suave: #968f86; --acento: #d4a85c; --ok: #7bb26a; --alerta: #d97a6c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fondo); color: var(--texto);
+    font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10; background: var(--panel);
+    border-bottom: 1px solid var(--linea); padding: 12px 18px;
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  h1 { font-size: 17px; margin: 0 8px 0 0; font-weight: 600; letter-spacing: .3px; }
+  h1 span { color: var(--acento); }
+  select, button {
+    font: inherit; color: var(--texto); background: #262320;
+    border: 1px solid var(--linea); border-radius: 7px; padding: 7px 12px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--acento); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.principal { background: var(--acento); color: #221c12; border-color: var(--acento); font-weight: 600; }
+  button.peligro:hover { border-color: var(--alerta); color: var(--alerta); }
+  .estado { color: var(--suave); font-size: 13px; margin-left: auto; text-align: right; }
+  .estado b { color: var(--texto); font-weight: 500; }
+
+  main { padding: 18px; }
+  .capitulos { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; color: var(--suave); font-size: 13px; }
+  .capitulos div { background: var(--panel); border: 1px solid var(--linea); border-radius: 7px; padding: 5px 10px; }
+  .capitulos b { color: var(--texto); font-weight: 500; }
+
+  .slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .slide { background: var(--panel); border: 1px solid var(--linea); border-radius: 9px; overflow: hidden; cursor: pointer; }
+  .slide:hover { border-color: var(--acento); }
+  .slide.tocada { border-color: var(--ok); }
+  .slide.fuera { opacity: .35; }
+  .slide img { width: 100%; aspect-ratio: 4/5; object-fit: cover; display: block; background: #000; }
+  .pie { padding: 6px 9px; font-size: 12px; color: var(--suave); display: flex; justify-content: space-between; gap: 6px; }
+  .pie b { color: var(--texto); font-weight: 600; }
+
+  .fondo-modal {
+    position: fixed; inset: 0; background: rgba(8,7,6,.86); display: none;
+    align-items: center; justify-content: center; padding: 22px; z-index: 20;
+  }
+  .fondo-modal.abierto { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--linea); border-radius: 12px;
+    max-width: 1120px; width: 100%; max-height: 92vh; overflow: auto; padding: 18px;
+    display: grid; grid-template-columns: 300px 1fr; gap: 20px;
+  }
+  .modal h2 { margin: 0 0 4px; font-size: 16px; }
+  .modal .grande { width: 100%; border-radius: 8px; display: block; }
+  .acciones { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .fotos, .alternativas { display: grid; gap: 9px; }
+  .fotos { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+  .alternativas { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); max-height: 56vh; overflow: auto; }
+  .foto { border: 1px solid var(--linea); border-radius: 7px; overflow: hidden; background: #000; }
+  .foto img { width: 100%; aspect-ratio: 3/2; object-fit: cover; display: block; }
+  .foto span { display: block; padding: 4px 6px; font-size: 11px; color: var(--suave); }
+  .alternativas .foto { cursor: pointer; }
+  .alternativas .foto:hover { border-color: var(--acento); }
+  .titulo-seccion { color: var(--suave); font-size: 13px; margin: 14px 0 7px; }
+
+  .barra {
+    position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--linea);
+    padding: 11px 18px; display: none; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  .barra.hay { display: flex; }
+  .barra code { background: #262320; border-radius: 5px; padding: 2px 7px; font-size: 12px; color: var(--acento); }
+  .consola {
+    font-family: Consolas, monospace; font-size: 12px; color: var(--suave);
+    background: #0d0c0b; border: 1px solid var(--linea); border-radius: 8px;
+    padding: 10px 12px; max-height: 170px; overflow: auto; white-space: pre-wrap; margin-bottom: 16px; display: none;
+  }
+  .consola.visible { display: block; }
+  .vacio { color: var(--suave); padding: 40px 0; text-align: center; line-height: 1.8; }
+  .vacio b { color: var(--texto); }
+  .quitar {
+    background: none; border: none; color: var(--suave); padding: 4px 6px; font-size: 13px;
+  }
+  .quitar:hover { color: var(--alerta); }
+  .aviso {
+    background: #2a211c; border: 1px solid #5d3f33; color: #e8c9bd; border-radius: 8px;
+    padding: 9px 12px; margin-bottom: 14px; font-size: 13px; display: none;
+  }
+  .aviso.visible { display: block; }
+  .ruta-mano { display: none; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .ruta-mano.visible { display: flex; }
+  .ruta-mano input {
+    flex: 1; min-width: 260px; font: inherit; color: var(--texto); background: #262320;
+    border: 1px solid var(--linea); border-radius: 7px; padding: 7px 11px;
+  }
+  .ruta-mano input:focus { outline: none; border-color: var(--acento); }
+  .ruta-mano span { color: var(--suave); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Armar post <span>Serrano</span></h1>
+  <select id="album"></select>
+  <button id="agregar">Agregar casamiento…</button>
+  <button class="quitar" id="quitar" title="Lo saca de la lista; no borra nada del disco">quitar de la lista</button>
+  <button id="curar" class="principal">Armar el post</button>
+  <button id="abrir-carpeta" title="Abre la carpeta con los JPG listos para subir">Abrir la carpeta de slides</button>
+  <div class="estado" id="estado"></div>
+</header>
+
+<main>
+  <div class="aviso" id="aviso"></div>
+  <div class="ruta-mano" id="ruta-mano">
+    <span>Pegá o arrastrá acá la carpeta del casamiento:</span>
+    <input id="ruta" type="text" placeholder="/Users/diego/Fotos/Casamiento Ana y Juan" spellcheck="false">
+    <button class="principal" id="ruta-ok">Agregar</button>
+    <button id="ruta-cerrar">Cancelar</button>
+  </div>
+  <div class="consola" id="consola"></div>
+  <div class="capitulos" id="capitulos"></div>
+  <div class="slides" id="slides"></div>
+  <div class="vacio" id="vacio">Elegí un casamiento y tocá <b>Armar el post</b>.</div>
+</main>
+
+<div class="barra" id="barra">
+  <b id="resumen-cambios"></b>
+  <span id="lista-cambios"></span>
+  <button class="principal" id="aplicar">Aplicar y rehacer el post</button>
+  <button id="descartar">Descartar</button>
+</div>
+
+<div class="fondo-modal" id="fondo-modal">
+  <div class="modal">
+    <div>
+      <img class="grande" id="modal-img" alt="">
+      <div class="acciones">
+        <button id="btn-sola">Que vaya sola</button>
+        <button class="peligro" id="btn-fuera">Sacar del post</button>
+        <button id="btn-cerrar">Cerrar</button>
+      </div>
+    </div>
+    <div>
+      <h2 id="modal-titulo"></h2>
+      <div id="modal-info" style="color:var(--suave);font-size:13px"></div>
+      <div class="titulo-seccion">Fotos de esta slide</div>
+      <div class="fotos" id="modal-fotos"></div>
+      <div class="titulo-seccion">Cambiarla por otra de este momento del día</div>
+      <div class="alternativas" id="modal-alternativas"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let ALBUM = "", POST = {slides: [], suplentes: [], capitulos: []}, CAMBIOS = [], SLIDE = null;
+
+const get = (u) => fetch(u).then(r => r.json());
+const post = (u, d) => fetch(u, {method: "POST", headers: {"Content-Type": "application/json"},
+                                body: JSON.stringify(d)}).then(r => r.json());
+
+let LISTA = [];
+
+function avisar(texto) {
+  $("aviso").textContent = texto || "";
+  $("aviso").classList.toggle("visible", !!texto);
+}
+
+async function cargarAlbumes(preferido) {
+  LISTA = await get("/api/albumes");
+  $("album").innerHTML = LISTA.map(a =>
+    `<option value="${a.nombre}">${a.nombre} — ${a.fotos} fotos${a.curado ? " · armado " + a.cuando : ""}</option>`
+  ).join("");
+  const elegido = LISTA.find(a => a.nombre === preferido)
+                  || LISTA.find(a => a.nombre === ALBUM)
+                  || LISTA.find(a => a.curado) || LISTA[0];
+  if (!elegido) {
+    ALBUM = "";
+    POST = {slides: [], suplentes: [], capitulos: []};
+    $("slides").innerHTML = "";
+    $("capitulos").innerHTML = "";
+    $("estado").innerHTML = "";
+    $("vacio").style.display = "block";
+    $("vacio").innerHTML = "Todavía no hay ningún casamiento.<br>" +
+      "Tocá <b>Agregar casamiento…</b> y elegí la carpeta con las fotos.";
+    pintarQuitar();
+    return;
+  }
+  $("album").value = elegido.nombre;
+  ALBUM = elegido.nombre;
+  pintarQuitar();
+  await cargarPost();
+}
+
+function pintarQuitar() {
+  const a = LISTA.find(x => x.nombre === ALBUM);
+  $("quitar").style.display = a && a.agregado ? "" : "none";
+}
+
+async function cargarPost() {
+  POST = await get("/api/post?album=" + encodeURIComponent(ALBUM));
+  CAMBIOS = [];
+  pintarBarra();
+  $("vacio").style.display = POST.slides.length ? "none" : "block";
+  $("capitulos").innerHTML = (POST.capitulos || []).map(c =>
+    `<div><b>${c.capitulo}</b> ${(c.desde || "").slice(11, 16)}–${(c.hasta || "").slice(11, 16)} · ${c.fotos} momentos</div>`
+  ).join("");
+  const fotos = POST.slides.reduce((n, s) => n + (s.fotos || []).length, 0);
+  $("estado").innerHTML = POST.slides.length
+    ? `<b>${POST.slides.length} slides</b> · ${fotos} fotos`
+    : "";
+  $("slides").innerHTML = POST.slides.map(s => `
+    <div class="slide" data-n="${s.slide}">
+      <img src="/slide?album=${encodeURIComponent(ALBUM)}&n=${s.slide}&t=${Date.now()}" loading="lazy" alt="">
+      <div class="pie"><b>${String(s.slide).padStart(2, "0")}</b>
+        <span>${s.capitulo}</span>
+        <span>${s.plantilla === "sola" || s.plantilla === "entera" ? "sola" : (s.fotos || []).length + " fotos"}</span>
+      </div>
+    </div>`).join("");
+  document.querySelectorAll(".slide").forEach(el =>
+    el.onclick = () => abrirSlide(Number(el.dataset.n)));
+}
+
+function abrirSlide(n) {
+  SLIDE = POST.slides.find(s => s.slide === n);
+  if (!SLIDE) return;
+  $("modal-img").src = `/slide?album=${encodeURIComponent(ALBUM)}&n=${n}&t=${Date.now()}`;
+  $("modal-titulo").textContent = `Slide ${String(n).padStart(2, "0")} · ${SLIDE.capitulo}`;
+  $("modal-info").textContent =
+    `${SLIDE.plantilla} · ${(SLIDE.taken || "").slice(11, 16)} · ${SLIDE.motivo || ""}`;
+  $("modal-fotos").innerHTML = (SLIDE.detalle || []).map(f => `
+    <div class="foto"><img src="/thumb?album=${encodeURIComponent(ALBUM)}&key=${f.key}" loading="lazy" alt="">
+      <span>${f.name}</span></div>`).join("");
+  const cerca = (POST.suplentes || [])
+    .filter(s => s.bloque === SLIDE.bloque || s.capitulo === SLIDE.capitulo)
+    .sort((a, b) => (a.bloque === SLIDE.bloque ? -1 : 1) - (b.bloque === SLIDE.bloque ? -1 : 1)
+                    || b.score - a.score)
+    .slice(0, 36);
+  $("modal-alternativas").innerHTML = cerca.length ? cerca.map(f => `
+    <div class="foto" data-name="${f.name}">
+      <img src="/thumb?album=${encodeURIComponent(ALBUM)}&key=${f.key}" loading="lazy" alt="">
+      <span>${f.name} · ${(f.taken || "").slice(11, 16)}</span></div>`).join("")
+    : `<div style="color:var(--suave)">No quedaron suplentes de este tramo.</div>`;
+  document.querySelectorAll("#modal-alternativas .foto").forEach(el =>
+    el.onclick = () => agregarCambio(`${SLIDE.slide} ${el.dataset.name}`));
+  $("fondo-modal").classList.add("abierto");
+}
+
+function cerrar() { $("fondo-modal").classList.remove("abierto"); }
+
+function agregarCambio(linea) {
+  const n = linea.split(" ")[0];
+  CAMBIOS = CAMBIOS.filter(c => c.split(" ")[0] !== n);   // una orden por slide
+  CAMBIOS.push(linea);
+  pintarBarra();
+  cerrar();
+}
+
+function pintarBarra() {
+  $("barra").classList.toggle("hay", CAMBIOS.length > 0);
+  $("resumen-cambios").textContent = CAMBIOS.length === 1 ? "1 cambio:" : `${CAMBIOS.length} cambios:`;
+  $("lista-cambios").innerHTML = CAMBIOS.map(c => `<code>${c}</code>`).join(" ");
+  document.querySelectorAll(".slide").forEach(el => {
+    const orden = CAMBIOS.find(c => c.split(" ")[0] === el.dataset.n);
+    el.classList.toggle("tocada", !!orden);
+    el.classList.toggle("fuera", !!orden && orden.endsWith(" fuera"));
+  });
+}
+
+async function seguir(hasta) {
+  $("consola").classList.add("visible");
+  $("curar").disabled = $("aplicar").disabled = true;
+  while (true) {
+    const e = await get("/api/estado");
+    $("consola").textContent = e.lineas.join("\n");
+    $("consola").scrollTop = $("consola").scrollHeight;
+    if (!e.corriendo && e.lineas.length) break;
+    await new Promise(r => setTimeout(r, 900));
+  }
+  $("curar").disabled = $("aplicar").disabled = false;
+  await cargarPost();
+  if (hasta) hasta();
+}
+
+$("album").onchange = async (e) => {
+  ALBUM = e.target.value; avisar(""); pintarQuitar(); await cargarPost();
+};
+
+async function sumarCarpeta(ruta) {
+  const r = await post("/api/agregar", {ruta});
+  if (r.error) { avisar(r.error); return false; }
+  await cargarAlbumes(r.nombre);
+  avisar(r.repetido
+    ? `"${r.nombre}" ya estaba en la lista.`
+    : `"${r.nombre}" agregado, ${r.fotos} fotos. Tocá "Armar el post".`);
+  return true;
+}
+
+function pedirARano(motivo) {
+  avisar(motivo);
+  $("ruta-mano").classList.add("visible");
+  $("ruta").focus();
+}
+
+$("agregar").onclick = async () => {
+  avisar("");
+  $("agregar").disabled = true;
+  try {
+    const elegida = await post("/api/elegir", {});
+    // Si el diálogo del sistema no abre, queda el plan B: pegar o arrastrar la carpeta
+    if (elegida.error) { pedirARano(elegida.error + "."); return; }
+    if (!elegida.ruta) return;                       // canceló
+    await sumarCarpeta(elegida.ruta);
+  } catch (err) {
+    pedirARano("No se pudo abrir el diálogo de carpetas.");
+  } finally {
+    $("agregar").disabled = false;
+  }
+};
+
+$("ruta-ok").onclick = async () => {
+  const ruta = $("ruta").value.trim();
+  if (!ruta) return;
+  if (await sumarCarpeta(ruta)) {
+    $("ruta").value = "";
+    $("ruta-mano").classList.remove("visible");
+  }
+};
+$("ruta").onkeydown = (e) => { if (e.key === "Enter") $("ruta-ok").click(); };
+$("ruta-cerrar").onclick = () => {
+  $("ruta-mano").classList.remove("visible"); avisar("");
+};
+
+$("quitar").onclick = async () => {
+  const a = LISTA.find(x => x.nombre === ALBUM);
+  if (!a || !confirm(`Sacar "${ALBUM}" de la lista?\n\nNo se borra ninguna foto ni el post ya armado: sólo deja de aparecer acá.`)) return;
+  const r = await post("/api/quitar", {album: ALBUM});
+  if (r.error) { avisar(r.error); return; }
+  ALBUM = "";
+  await cargarAlbumes();
+  avisar(`"${r.nombre}" salió de la lista. Las fotos siguen donde estaban.`);
+};
+$("curar").onclick = async () => { await post("/api/curar", {album: ALBUM}); seguir(); };
+$("aplicar").onclick = async () => {
+  await post("/api/cambios", {album: ALBUM, lineas: CAMBIOS});
+  CAMBIOS = []; pintarBarra(); seguir();
+};
+$("descartar").onclick = () => { CAMBIOS = []; pintarBarra(); };
+$("btn-cerrar").onclick = cerrar;
+$("btn-sola").onclick = () => agregarCambio(`${SLIDE.slide} sola`);
+$("btn-fuera").onclick = () => agregarCambio(`${SLIDE.slide} fuera`);
+$("fondo-modal").onclick = (e) => { if (e.target === $("fondo-modal")) cerrar(); };
+$("abrir-carpeta").onclick = async () => {
+  const r = await post("/api/abrir", {album: ALBUM});
+  if (r.error) avisar(r.error + ". Curá el casamiento primero.");
+};
+document.onkeydown = (e) => { if (e.key === "Escape") cerrar(); };
+
+cargarAlbumes();
+</script>
+</body>
+</html>

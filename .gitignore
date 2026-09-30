@@ -1,0 +1,14 @@
+__pycache__/
+salida/
+modelos/
+.curator/
+
+# Las correcciones guardan la ruta del álbum, que suele llevar el nombre de los novios
+correcciones.jsonl
+
+# Derivados de fotos de clientes: se regeneran con entrenar.py y verdad.py
+referencias.npz
+modelo_preferencia.json
+modelo_estilo.json
+# Las rutas de los casamientos de esta máquina
+casamientos.json

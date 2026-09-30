@@ -1,0 +1,86 @@
+{
+  "agrupado": {
+    "gap_segundos": 4,
+    "distancia_rafaga": 14,
+    "distancia_repetida": 8
+  },
+  "post": {
+    "slides": 20,
+    "formato": "4:5",
+    "apertura": "cronologico",
+    "_nota_apertura": "cronologico = el post arranca por el principio del día; mejor = la foto más fuerte primero. En 5 de sus 6 posts publicados arranca cronológico, con preparativos o anillos.",
+    "capitulos": [
+      "preparativos",
+      "ceremonia",
+      "retratos",
+      "fiesta"
+    ],
+    "reparto": "proporcional",
+    "_nota_reparto": "proporcional = las slides se reparten a lo largo del día según cuántas fotos hay de cada parte, que es lo que hace él (medido en MJ). capitulos = usa los cupos fijos de abajo por capítulo.",
+    "sesgo": {
+      "preparativos": 1.58,
+      "ceremonia": 1.15,
+      "retratos": 1.25,
+      "fiesta": 0.45
+    },
+    "_nota_sesgo": "Cuánto publica él de cada parte del día contra cuánto hay en el álbum, medido sobre los 6 casamientos etiquetados (6658 momentos, 205 fotos publicadas). Multiplica el reparto proporcional. Preparativos y fiesta son firmes: publica más del principio del día en los 6 (1.22 a 2.05) y menos de la fiesta en los 6 (0.00 a 0.94), porque en la fiesta la cámara dispara muchísimo y él elige poco. Ceremonia y retratos varían demasiado entre casamientos (retratos va de 0.00 a 3.79), así que se dejan cerca de 1. En 1.0 el capítulo no se toca.",
+    "cupos": {
+      "preparativos": 4,
+      "ceremonia": 5,
+      "retratos": 6,
+      "fiesta": 5
+    },
+    "_nota_cupos": "Cuántas slides de cada capítulo. Si un capítulo no tiene material para su cupo, las que sobran van al que más candidatos libres tenga. Los nombres se pueden cambiar acá: el corte del día no depende de cómo se llamen."
+  },
+  "estilo": {
+    "peso": 0.0,
+    "_nota": "Cuanto pesa el parecido a su estilo en el puntaje final, de 0 a 1. Hoy en 0: medido contra recortes de sus propias fotos el modelo da AUC 0.55, o sea casi azar. Subirlo cuando train_estilo.py se haya corrido con --descartadas."
+  },
+  "montaje": {
+    "apertura_collage": true,
+    "collages": {
+      "preparativos": 3,
+      "ceremonia": 2,
+      "retratos": 2,
+      "fiesta": 3
+    },
+    "plantillas": {
+      "preparativos": [
+        "apilado_blanco",
+        "detalles",
+        "polaroid",
+        "grilla"
+      ],
+      "ceremonia": [
+        "apilado_blanco",
+        "mosaico",
+        "grilla"
+      ],
+      "retratos": [
+        "apilado_blanco",
+        "grilla",
+        "mosaico"
+      ],
+      "fiesta": [
+        "apilado_blanco",
+        "grilla_6",
+        "grilla",
+        "mosaico"
+      ]
+    },
+    "maximo": {
+      "grilla_6": 2
+    },
+    "_nota": "Calibrado con sus 6 posts publicados (101 slides): la mitad de las slides son collage (entre 18 % y 80 % según el casamiento), 5 de 6 abren con un collage, y el más usado es el apilado blanco (27 slides). collages: cuántas de cada capítulo; plantillas: en qué orden se prueban. El apilado blanco sólo entra con fotos apaisadas: con verticales gana otra plantilla sola."
+  },
+  "caras": {
+    "parpadeo": false,
+    "_nota": "Detectar ojos cerrados usa MediaPipe, que trae telemetría de Google sin forma de apagarla. En un álbum entregado casi no aporta (ya viene sin parpadeos), así que va apagado. Ponerlo en true para álbumes crudos, sin elegir."
+  },
+  "interfaz": {
+    "albumes": "D:/curador-datos/albumes",
+    "salida": "D:/curador-datos/salida",
+    "puerto": 8770,
+    "_nota": "Dónde busca los casamientos la interfaz (python curator/interfaz.py) y dónde deja los posts. Los álbumes son pesados: conviene que estén en un disco con espacio."
+  }
+}
