@@ -35,6 +35,10 @@ from lib import embed, layouts
 
 ROOT = Path(__file__).resolve().parent
 REFERENCIAS = ROOT / "referencias.npz"
+# Los renglones con que se entrenó el modelo, para que cada entrenamiento sume a los anteriores en
+# vez de reemplazarlos: los álbumes viejos pueden no estar en esta máquina (35 GB), pero lo que se
+# aprendió de ellos no se tiene que perder
+DATOS = ROOT / "datos_preferencia.npz"
 MIN_CELL = 200              # celdas más chicas que esto no describen bien la foto
 
 
@@ -64,11 +68,12 @@ def from_albums(albums: list[Path]) -> tuple[list[Path], list[str]]:
     """Las fotos originales que publicó de cada álbum etiquetado, en su miniatura del caché."""
     paths, origen = [], []
     for album in albums:
-        verdad = album / album_lib.CACHE_DIRNAME / "publicadas.json"
-        if not verdad.is_file():
-            print(f"  {album.name}: sin publicadas.json, correr antes verdad.py", flush=True)
+        from lib import preference as pref_lib
+        publicadas = pref_lib.etiquetas(album)
+        if not publicadas:
+            print(f"  {album.name}: sin publicadas.json ni elegidas.json, correr antes verdad.py "
+                  f"o elegir sus fotos desde la interfaz", flush=True)
             continue
-        publicadas = set(json.loads(verdad.read_text(encoding="utf-8-sig"))["publicadas"])
         indice = album_lib.load_index(album / album_lib.CACHE_DIRNAME)
         for rel in sorted(publicadas):
             photo = indice.get(rel)
@@ -87,6 +92,8 @@ def main() -> None:
                         help="además entrena el modelo de preferencia con los álbumes etiquetados")
     parser.add_argument("--l2", type=float, default=10000.0,
                         help="regularización del modelo (10000 es lo que mejor midió)")
+    parser.add_argument("--desde-cero", action="store_true",
+                        help="no suma lo aprendido antes: entrena sólo con lo que se pasa ahora")
     args = parser.parse_args()
 
     out = Path(args.out).expanduser().resolve()
@@ -95,10 +102,18 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="curador-") as tmp:
         build(args, out, Path(tmp))
     if args.modelo:
-        entrenar_modelo([Path(a).expanduser().resolve() for a in args.albumes], args.l2)
+        entrenar_modelo([Path(a).expanduser().resolve() for a in args.albumes], args.l2,
+                        args.desde_cero)
 
 
-def entrenar_modelo(albumes: list[Path], l2: float) -> None:
+def respaldar(path: Path) -> None:
+    """Antes de pisar un archivo aprendido, deja una copia al lado (.anterior)."""
+    if path.is_file():
+        import shutil
+        shutil.copy2(path, path.with_name(path.stem + ".anterior" + path.suffix))
+
+
+def entrenar_modelo(albumes: list[Path], l2: float, desde_cero: bool = False) -> None:
     """Entrena el modelo de preferencia con todos los casamientos etiquetados que haya.
 
     Se entrena con todo a propósito: es el modelo que se usa en un casamiento nuevo. Para medir
@@ -111,21 +126,59 @@ def entrenar_modelo(albumes: list[Path], l2: float) -> None:
 
     config = _json.loads((ROOT / "config.json").read_text(encoding="utf-8-sig"))
     salidas = Path(config.get("interfaz", {}).get("salida", ROOT / "salida")).expanduser()
+    if not salidas.is_dir():
+        salidas = ROOT / "salida"
 
     def cargar(album: Path) -> dict:
         photos = list(album_lib.load_index(album / album_lib.CACHE_DIRNAME).values())
         return _embed.for_album(album, photos, album_lib.thumb_path)
 
     X, y, boda = pref_lib.dataset(albumes, salidas, cargar)
+    nuevos = set(boda.tolist())
+    if not desde_cero and DATOS.is_file():
+        # Lo aprendido antes se conserva; un casamiento que se vuelve a pasar reemplaza al suyo
+        previo = np.load(DATOS)
+        quedan = ~np.isin(previo["boda"], list(nuevos))
+        if quedan.any():
+            print(f"  se suma lo aprendido antes: {int(quedan.sum())} momentos de "
+                  f"{len(set(previo['boda'][quedan].tolist()))} casamientos", flush=True)
+            X = np.concatenate([previo["X"][quedan].astype(np.float64), X]) if len(X) else \
+                previo["X"][quedan].astype(np.float64)
+            y = np.concatenate([previo["y"][quedan], y])
+            boda = np.concatenate([previo["boda"][quedan], boda])
     if not len(X) or not y.any():
         print("", flush=True)
         print("Sin álbumes etiquetados con análisis: no se pudo entrenar el modelo", flush=True)
         return
-    modelo = pref_lib.Preference.fit(X, y, l2=l2)
-    modelo.meta["casamientos"] = sorted(set(boda.tolist()))
-    modelo.meta["l2"] = l2
+
     destino = ROOT / "modelo_preferencia.json"
+    casamientos = sorted(set(boda.tolist()))
+    if destino.is_file() and not desde_cero:
+        try:
+            antes = set(pref_lib.Preference.load(destino).meta.get("casamientos", []))
+        except (ValueError, json.JSONDecodeError):
+            antes = set()
+        perdidos = sorted(antes - set(casamientos))
+        if perdidos:
+            # El modelo actual sabe de casamientos que no están acá ni en datos_preferencia.npz:
+            # reemplazarlo sería desaprender. Se deja como está y se explica cómo seguir.
+            print("", flush=True)
+            print(f"El modelo actual se entrenó también con {', '.join(perdidos)}, que no están en "
+                  f"esta máquina ni en {DATOS.name}.", flush=True)
+            print("  Para no perder lo aprendido, el modelo NO se reemplazó (las referencias sí se "
+                  "actualizaron y ya suman lo nuevo).", flush=True)
+            print(f"  Solución: en la máquina que tiene esos álbumes correr una vez "
+                  f"'python curator/entrenar.py --modelo --albumes ...' y copiar {DATOS.name} acá. "
+                  f"O, si de verdad se quiere empezar de nuevo: --desde-cero.", flush=True)
+            return
+
+    modelo = pref_lib.Preference.fit(X, y, l2=l2)
+    modelo.meta["casamientos"] = casamientos
+    modelo.meta["l2"] = l2
+    respaldar(destino)
     modelo.save(destino)
+    respaldar(DATOS)
+    np.savez_compressed(DATOS, X=X.astype(np.float32), y=y, boda=boda)
     print("", flush=True)
     print(f"Modelo de preferencia: {int(y.sum())} momentos publicados de {len(X)} en "
           f"{len(modelo.meta['casamientos'])} casamientos -> {destino}", flush=True)
@@ -151,10 +204,22 @@ def build(args, out: Path, work: Path) -> None:
         sys.exit("No hay nada con qué entrenar: pasar --posts y/o --albumes")
 
     vectores = embed.compute(paths)
-    np.savez_compressed(out, vectors=vectores, origen=np.array(origen),
-                        names=np.array([p.name for p in paths]))
+    nombres = [p.name for p in paths]
+    if out.is_file() and not args.desde_cero:
+        # Se conservan las referencias de casamientos que esta vez no se pasaron (pueden no estar
+        # en esta máquina); los que sí se pasaron se reemplazan enteros
+        previo = np.load(out)
+        quedan = ~np.isin(previo["origen"], list(set(origen)))
+        if quedan.any():
+            print(f"  se conservan {int(quedan.sum())} referencias de antes, de "
+                  f"{len(set(previo['origen'][quedan].tolist()))} casamientos", flush=True)
+            vectores = np.concatenate([previo["vectors"][quedan], vectores])
+            origen = previo["origen"][quedan].tolist() + origen
+            nombres = previo["names"][quedan].tolist() + nombres
+    respaldar(out)
+    np.savez_compressed(out, vectors=vectores, origen=np.array(origen), names=np.array(nombres))
     por_boda = {b: origen.count(b) for b in dict.fromkeys(origen)}
-    print(f"Referencias: {len(paths)} fotos de {len(por_boda)} casamientos -> {out}", flush=True)
+    print(f"Referencias: {len(origen)} fotos de {len(por_boda)} casamientos -> {out}", flush=True)
     print("  " + ", ".join(f"{b} {n}" for b, n in por_boda.items()), flush=True)
 
 

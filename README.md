@@ -24,10 +24,29 @@ Abre una página en el navegador —sólo en esta máquina, las fotos no salen d
   un álbum pesa varios GB. La lista vive en `curator/casamientos.json`; *quitar de la lista* la
   saca de ahí y no borra ni una foto. Si el diálogo del sistema no abriera, la página ofrece un
   campo para pegar o arrastrar la carpeta.
-- **Armar el post** corre el análisis mostrando la consola en vivo.
+- Cada casamiento tiene **dos posts posibles**, en dos pestañas, y pueden convivir:
+  - **Post de la IA**: *Armar el post* recorre el álbum entero y elige los momentos (hasta 20
+    slides), mostrando la consola en vivo.
+  - **Con mis elegidas**: Diego ya eligió las fotos y la herramienta arma los collages con
+    **todas**, en 20 slides como mucho (o menos, con el selector *hasta N slides*). Las fotos se
+    eligen de cualquiera de estas formas, y se pueden combinar:
+    - **Elegir fotos del álbum**: la grilla de miniaturas de todo el casamiento, clic para marcar,
+      Shift+clic para marcar un tramo entero. Se guarda solo. *Partir de lo que eligió la IA*
+      marca las del otro post, para sacar y sumar sobre eso.
+    - **Arrastrar las fotos** desde el Finder sobre la página (o *elegilas*): no se suben ni se
+      copian, se reconocen por el nombre de archivo dentro del álbum.
+    - **Usar una carpeta con mis elegidas…**: una carpeta donde copió las que quiere. Si esa
+      carpeta se llama `elegidas` y está adentro del álbum, aparece un botón directo.
+    - **Usar todas las fotos del álbum**: para cuando el casamiento que se agregó ya es sólo la
+      selección.
 - Tocando una slide se ven sus fotos y las alternativas de ese momento del día, y se cambia lo que
-  haga falta. Cada cambio se aplica y el post se rehace en segundos.
+  haga falta. En el post con elegidas, cada foto tiene una ✕ para sacarla y las alternativas se
+  suman. Cada cambio se aplica y el post se rehace en segundos.
 - **Abrir la carpeta de slides** deja los JPG numerados adelante, listos para subir en ese orden.
+  Llevan la hora de captura consecutiva (un segundo por slide): pasadas por AirDrop, quedan en
+  Fotos del iPhone juntas y en el orden del post.
+- **Entrenar** (arriba a la derecha) reentrena la preferencia con todo lo que eligió y publicó. Ver
+  [Entrenar con casamientos nuevos](#entrenar-con-casamientos-nuevos).
 
 También se puede dejar una carpeta con todos los casamientos adentro y apuntarle `interfaz.albumes`
 en `config.json`: los que estén ahí aparecen solos, sin agregarlos uno por uno. `interfaz.salida`
@@ -193,7 +212,42 @@ cuatro minutos, porque el análisis de los siete ya está cacheado. Un álbum nu
 tarda unos 6 minutos la primera vez (medido en una laptop Intel de 8 hilos, sin GPU) y 25
 segundos cada vez que se vuelve a correr.
 
-## Entrenar y medir con casamientos reales
+## Entrenar con casamientos nuevos
+
+El botón **Entrenar** de la interfaz (o `python curator/entrenar_todo.py`) junta, de cada casamiento
+de la lista, lo que diga qué eligió él, y reentrena con todo:
+
+- **Lo que publicó.** Una carpeta `publicado/` adentro del álbum con las slides tal como las subió a
+  Instagram (`1.jpg`, `2.jpg`…, bajadas del perfil). Se corre `verdad.py` solo, y la carpeta no se
+  toma como material del post.
+- **Lo que eligió acá.** Armar un post en modo *con mis elegidas* sobre un álbum completo deja
+  `elegidas.json` en el caché del álbum: la misma señal que lo publicado, sin esperar a que lo suba.
+  (Si las elegidas son más de la mitad del álbum no cuenta: eso no es una elección.)
+- **Las correcciones** (`correcciones.jsonl`: "sacó ésta, puso aquélla") suman a un álbum que ya
+  tiene alguna de las dos anteriores.
+
+Los álbumes sin analizar se analizan antes. Después arma las referencias y el modelo
+(`entrenar.py --modelo`) y, con dos casamientos o más, mide el acierto dejando cada uno afuera.
+
+**El entrenamiento suma, no reemplaza.** Los álbumes viejos pueden no estar en la máquina donde se
+entrena (los seis primeros son 35 GB), así que:
+
+- `referencias.npz` conserva las fotos de los casamientos que esta vez no se pasaron.
+- `datos_preferencia.npz` guarda los renglones con que se entrenó el modelo; cada entrenamiento
+  nuevo suma los suyos. Un casamiento que se vuelve a pasar reemplaza sólo lo suyo.
+- Si el modelo actual sabe de casamientos que no están ni en la máquina ni en
+  `datos_preferencia.npz`, **no se reemplaza** y se explica por qué. Pasa la primera vez, con un
+  modelo entrenado antes de este cambio: en la máquina que tiene los seis álbumes hay que correr una
+  vez `entrenar.py --modelo --albumes ...` y llevar `datos_preferencia.npz` junto con los otros.
+- Antes de pisar cualquiera de los tres se deja una copia `.anterior` al lado. `--desde-cero`
+  entrena sólo con lo que se pasa.
+
+**Desde Google Drive:** con *Google Drive para escritorio* las carpetas compartidas aparecen en el
+Finder (`~/Library/CloudStorage/GoogleDrive-…`) y se agregan con *Agregar casamiento…* como
+cualquier otra; conviene marcarlas "disponibles sin conexión" antes de analizarlas, porque la
+primera pasada lee todas las fotos.
+
+## Entrenar y medir con casamientos reales, a mano
 
 ```bash
 python curator/verdad.py "D:/bodas/MJ" "D:/bodas/MJ_IG" --revisar     # qué fotos usó en cada slide

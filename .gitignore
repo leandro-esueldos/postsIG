@@ -12,3 +12,9 @@ modelo_preferencia.json
 modelo_estilo.json
 # Las rutas de los casamientos de esta máquina
 casamientos.json
+
+# Resumen del último entrenamiento: lleva los nombres de los casamientos
+entrenamiento.json
+datos_preferencia.npz
+*.anterior.npz
+*.anterior.json

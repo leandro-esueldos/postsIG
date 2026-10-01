@@ -9,17 +9,22 @@ Tiempo: **20–30 minutos**, casi todo esperando descargas.
 
 ## 0. Antes de salir de tu máquina
 
-La carpeta `curator/` tiene tres archivos que **no están en git** y que hay que llevar sí o sí,
+La carpeta `curator/` tiene archivos que **no están en git** y que hay que llevar sí o sí,
 porque son lo que la herramienta aprendió de los seis casamientos:
 
 | archivo | qué es |
 |---|---|
 | `referencias.npz` (708 KB) | las 377 fotos que publicó, descriptas por CLIP |
 | `modelo_preferencia.json` (40 KB) | el modelo entrenado |
+| `datos_preferencia.npz` (~15 MB) | los ejemplos con que se entrenó el modelo, para que el botón *Entrenar* de la Mac sume a lo aprendido en vez de empezar de cero |
 | `modelos/` (126 MB) | CLIP, YuNet y SFace |
 
+`datos_preferencia.npz` es nuevo: se genera corriendo una vez, en la máquina que tiene los seis
+álbumes, `python curator/entrenar.py --modelo --albumes <los seis>` con esta versión. Sin él la Mac
+arma los posts igual, pero *Entrenar* no reemplaza el modelo (para no desaprender) y lo avisa.
+
 `modelos/` se puede bajar solo allá (paso 4), pero si lo copiás te ahorrás la descarga y el riesgo
-de que alguna URL falle. Los otros dos **no se pueden regenerar sin los álbumes**, así que van sí o sí.
+de que alguna URL falle. Los otros **no se pueden regenerar sin los álbumes**, así que van sí o sí.
 
 Llevá la carpeta del proyecto entera (con `modelos/` adentro son ~130 MB) en un pendrive, por
 AirDrop o por Drive. No hace falta `curator/salida/` ni `__pycache__/`.
