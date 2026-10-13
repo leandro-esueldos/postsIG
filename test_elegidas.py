@@ -9,6 +9,8 @@ Arma casamientos de mentira (sólo metadatos: tamaño, hora, capítulo) y verifi
 4. Con pocas fotos, las verticales van solas (sobra lugar) y las apaisadas se juntan.
 5. Con más de las que entran, avisa y deja afuera las de menor puntaje, no cualquiera.
 6. Correrlo dos veces da lo mismo, y los cambios a mano pasan a la lista.
+7. Si él no dice cuántas slides, la cantidad sale de cuántas fotos son y de qué orientación.
+8. Juntar dos slides las deja en un mismo collage, y elegir plantilla se respeta.
 
 Uso:  python curator/test_elegidas.py
 """
@@ -81,6 +83,12 @@ def propiedades(slides: list[dict], fotos: list[Photo], afuera: list, solas: set
           f"{cual}: numeración rota {numeros}")
 
 
+def escribir_post(carpeta: Path, slides: list[dict]) -> None:
+    """Un seleccion.json mínimo, como el que deja curate.py, para que los cambios lo lean."""
+    (carpeta / "seleccion.json").write_text(json.dumps({"slides": [
+        {"slide": s["slide"], "detalle": [{"name": p.name} for p in s["fotos"]]} for s in slides]}))
+
+
 def main() -> int:
     print("1. Un post normal: 55 elegidas")
     fotos = casamiento(55, 1)
@@ -128,23 +136,87 @@ def main() -> int:
     slides, _, _ = elegidas.pack(fotos, set(), 20, CONFIG)
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        (tmp / "seleccion.json").write_text(json.dumps({"slides": [
-            {"slide": s["slide"], "detalle": [{"name": p.name} for p in s["fotos"]]} for s in slides]}))
+        escribir_post(tmp, slides)
         collage = next(s for s in slides if len(s["fotos"]) > 1)
-        (tmp / "cambios.txt").write_text(f"# comentario\n1 fuera\n{collage['slide']} sola\n- DSC_0005\n+ DSC_0005\n")
-        items = [(p.name, False) for p in fotos]
-        nuevos, hecho = elegidas.aplicar_cambios(tmp / "cambios.txt", tmp / "seleccion.json", items, por_nombre)
-        nombres = {n for n, _ in nuevos}
+        (tmp / "cambios.txt").write_text(f"# comentario\n1 fuera\n{collage['slide']} sola\n"
+                                         f"- DSC_0005\n+ DSC_0005\nslides 9\n")
+        lista = elegidas.Lista([elegidas.Foto(p.name) for p in fotos])
+        lista, hecho = elegidas.aplicar_cambios(tmp / "cambios.txt", tmp / "seleccion.json", lista, por_nombre)
+        nombres = set(lista.nombres())
         primera = {p.name for p in slides[0]["fotos"]}
         check(not (primera & nombres), "«1 fuera» saca las fotos de la slide 1", "«1 fuera» no sacó nada")
-        marcadas = {n for n, s in nuevos if s}
+        marcadas = {f.name for f in lista.fotos if f.sola}
         check({p.name for p in collage["fotos"]} - primera <= marcadas,
               "«N sola» marca las fotos del collage", "«N sola» no marcó las fotos")
         check("DSC_0005" in nombres or "DSC_0005" in primera, "«- foto» y «+ foto» se aplican en orden",
               "«+ foto» no volvió a sumar la foto")
+        check(lista.slides == 9, "«slides 9» fija la cantidad", f"«slides 9» dejó {lista.slides}")
         resto = (tmp / "cambios.txt").read_text()
         check(all(l.startswith("#") for l in resto.splitlines() if l.strip()),
               "los cambios quedan marcados como aplicados (no se repiten)", "quedaron cambios sin marcar")
+        # La lista ida y vuelta por el archivo no pierde nada
+        elegidas.guardar(tmp / "elegidas.txt", lista)
+        leida = elegidas.leer(tmp / "elegidas.txt")
+        check([f.linea() for f in leida.fotos] == [f.linea() for f in lista.fotos] and leida.slides == 9,
+              "la lista se guarda y se lee igual (marcas y cantidad de slides)",
+              "la lista cambió al guardarla y leerla")
+
+    print("7. Cuántas slides, si él no lo dice")
+    for n, vert, esperado in ((10, 1.0, 6), (10, 0.0, 5), (20, 0.4, 11), (55, 0.4, 20), (3, 1.0, 2), (1, 1.0, 1)):
+        fotos = casamiento(n, 70 + n, verticales=vert)
+        v, h = elegidas.orientaciones(fotos)
+        auto = elegidas.auto_slides(fotos)
+        check(abs(auto - esperado) <= 1, f"{n} fotos ({v} verticales, {h} apaisadas) → {auto} slides",
+              f"{n} fotos ({v} verticales, {h} apaisadas) → {auto} slides, se esperaban ~{esperado}")
+    fotos = casamiento(14, 77)
+    slides, afuera, _ = elegidas.pack(fotos, set(), elegidas.auto_slides(fotos), CONFIG)
+    propiedades(slides, fotos, afuera, set(), elegidas.auto_slides(fotos), "14 fotos en automático")
+    check(any(s["plantilla"] for s in slides), "en automático se arman collages",
+          "en automático no se armó ningún collage")
+    check(not afuera, "en automático entran todas", "en automático quedaron fotos afuera")
+
+    print("8. Juntar y elegir plantilla")
+    fotos = casamiento(16, 8, verticales=0.6)
+    por_nombre = {p.name.lower(): p for p in fotos}
+    tope = elegidas.auto_slides(fotos)
+    slides, _, _ = elegidas.pack(fotos, set(), tope, CONFIG)
+    sueltas = [s for s in slides if len(s["fotos"]) == 1]
+    a, b = sueltas[0]["slide"], sueltas[1]["slide"]
+    juntas = {p.name for s in (sueltas[0], sueltas[1]) for p in s["fotos"]}
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        escribir_post(tmp, slides)
+        (tmp / "cambios.txt").write_text(f"{a} juntar {b}\n")
+        lista = elegidas.Lista([elegidas.Foto(p.name) for p in fotos])
+        lista, _ = elegidas.aplicar_cambios(tmp / "cambios.txt", tmp / "seleccion.json", lista, por_nombre)
+        grupos = {f.name: f.grupo for f in lista.fotos if f.grupo}
+        nuevas, afuera, _ = elegidas.pack(fotos, set(), tope, CONFIG, grupos)
+        propiedades(nuevas, fotos, afuera, set(), tope, "con dos slides juntadas")
+        check(any({p.name for p in s["fotos"]} == juntas for s in nuevas),
+              f"«{a} juntar {b}» las pone en un mismo collage, y con nada más",
+              f"«{a} juntar {b}» no quedaron juntas")
+        # Cambiarle la plantilla a un collage de 4
+        cuatro = next((s for s in nuevas if len(s["fotos"]) == 4), None)
+        if cuatro is None:
+            check(True, "(no salió ningún collage de 4 para probar la plantilla)", "")
+        else:
+            otra = "polaroid" if cuatro["plantilla"] != "polaroid" else "grilla"
+            escribir_post(tmp, nuevas)
+            (tmp / "cambios.txt").write_text(f"{cuatro['slide']} plantilla {otra}\n")
+            lista, _ = elegidas.aplicar_cambios(tmp / "cambios.txt", tmp / "seleccion.json", lista, por_nombre)
+            grupos = {f.name: f.grupo for f in lista.fotos if f.grupo}
+            plantillas = {f.grupo: f.plantilla for f in lista.fotos if f.grupo and f.plantilla}
+            otra_vez, afuera, _ = elegidas.pack(fotos, set(), tope, CONFIG, grupos, plantillas)
+            mismo = next((s for s in otra_vez if {p.name for p in s["fotos"]} == {p.name for p in cuatro["fotos"]}), None)
+            check(mismo is not None and mismo["plantilla"] == otra,
+                  f"«N plantilla {otra}» arma esa slide con esa plantilla",
+                  f"«N plantilla {otra}» no se respetó")
+        (tmp / "cambios.txt").write_text(f"{a} juntar {b}\n")
+        escribir_post(tmp, [{"slide": 1, "fotos": fotos[:4]}, {"slide": 2, "fotos": fotos[4:7]}])
+        (tmp / "cambios.txt").write_text("1 juntar 2\n")
+        _, hecho = elegidas.aplicar_cambios(tmp / "cambios.txt", tmp / "seleccion.json", lista, por_nombre)
+        check(any("más grande es de 6" in h for h in hecho), "no deja juntar más de 6 fotos",
+              "dejó armar un collage de 7")
 
     print()
     if FALLAS:

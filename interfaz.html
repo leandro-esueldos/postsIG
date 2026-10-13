@@ -208,13 +208,12 @@
   <section class="panel" id="panel-elegidas">
     <div class="herramientas">
       <button id="curar-elegidas" class="principal">Armar el post con mis elegidas</button>
-      <label class="chk">hasta
-        <select id="tope">
-          <option>20</option><option>18</option><option>15</option><option>12</option><option>10</option>
-        </select> slides</label>
+      <label class="chk" title="Automático: la cantidad sale de cuántas fotos son y cuántas son verticales o apaisadas">slides
+        <select id="tope"></select></label>
       <button id="abrir-elegidas">Abrir la carpeta de slides</button>
       <span class="estado" id="estado-elegidas"></span>
     </div>
+    <div class="herramientas"><span class="nota" id="resumen-elegidas"></span></div>
     <div class="herramientas">
       <button id="ir-elegir">Marcarlas en el álbum…</button>
       <button id="carpeta-elegidas" title="Una carpeta con copias de las fotos que elegiste: se cruzan por nombre">Usar una carpeta con mis elegidas…</button>
@@ -263,6 +262,11 @@
         <button id="btn-sola">Que vaya sola</button>
         <button class="peligro" id="btn-fuera">Sacar del post</button>
         <button id="btn-cerrar">Cerrar</button>
+      </div>
+      <div class="acciones" id="acciones-elegidas">
+        <button id="btn-juntar-ant" title="Pone las fotos de esta slide y de la anterior en un mismo collage">Juntar con la anterior</button>
+        <button id="btn-juntar-sig" title="Pone las fotos de esta slide y de la siguiente en un mismo collage">Juntar con la siguiente</button>
+        <label class="chk" id="caja-plantilla">plantilla <select id="sel-plantilla"></select></label>
       </div>
     </div>
     <div>
@@ -357,6 +361,15 @@ function pintarPost(modo) {
       ? `Hay <b>${n} fotos elegidas</b>. Tocá <b>Armar el post con mis elegidas</b>: entran todas, repartidas en collages.`
       : "Todavía no elegiste fotos. Marcalas en el álbum, arrastralas acá, o usá una carpeta donde las hayas copiado.";
     $("curar-elegidas").disabled = !n;
+    const info = P.elegidas && typeof P.elegidas === "object" ? P.elegidas : null;
+    $("resumen-elegidas").innerHTML = info
+      ? `${info.fotos} fotos: ${info.verticales} verticales y ${info.apaisadas} apaisadas → ` +
+        (info.slides_pedidas ? `<b>${info.tope} slides</b>, como pediste (automático serían ${info.slides_auto})`
+                             : `<b>${info.tope} slides</b>, decidido por las fotos`) +
+        (info.afuera && info.afuera.length ? ` · ojo: ${info.afuera.length} no entraron` : "") +
+        ". Tocá una slide para separarla, juntarla con otra o cambiarle la plantilla."
+      : "";
+    pintarTope(info ? info.slides_auto : 0);
   }
   const t = Date.now();
   $("slides-" + modo).innerHTML = P.slides.map(s => `
@@ -380,7 +393,28 @@ function abrirSlide(modo, n) {
   $("modal-img").src = `/slide?album=${enc(ALBUM)}&modo=${modo}&n=${n}&t=${Date.now()}`;
   $("modal-titulo").textContent = `Slide ${String(n).padStart(2, "0")} · ${SLIDE.capitulo}`;
   $("modal-info").textContent = `${SLIDE.plantilla} · ${hora(SLIDE.taken)} · ${SLIDE.motivo || ""}`;
-  $("btn-sola").textContent = elegidas && (SLIDE.detalle || []).length > 1 ? "Que vayan solas" : "Que vaya sola";
+  const cuantas = (SLIDE.detalle || []).length;
+  $("btn-sola").textContent = elegidas && cuantas > 1 ? "Separar: que vayan solas" : "Que vaya sola";
+  $("btn-sola").style.display = elegidas && cuantas === 1 ? "none" : "";
+  $("acciones-elegidas").style.display = elegidas ? "" : "none";
+  if (elegidas) {
+    const vecina = (k) => POSTS.elegidas.slides.find(s => s.slide === n + k);
+    for (const [id, k] of [["btn-juntar-ant", -1], ["btn-juntar-sig", 1]]) {
+      const v = vecina(k);
+      const total = v ? cuantas + (v.detalle || []).length : 0;
+      $(id).disabled = !v || total > 6;
+      $(id).title = !v ? "No hay slide de ese lado"
+        : total > 6 ? `Serían ${total} fotos: el collage más grande es de 6`
+        : `Un collage de ${total} con la slide ${String(n + k).padStart(2, "0")}`;
+      $(id).onclick = () => agregarCambio(`${n} juntar ${n + k}`);
+    }
+    const opciones = ((POSTS.elegidas.plantillas || {})[cuantas] || []);
+    $("caja-plantilla").style.display = cuantas > 1 && opciones.length > 1 ? "" : "none";
+    $("sel-plantilla").innerHTML = opciones.map(o =>
+      `<option value="${o.id}">${esc(o.nombre)}</option>`).join("");
+    $("sel-plantilla").value = SLIDE.plantilla;
+    $("sel-plantilla").onchange = () => agregarCambio(`${n} plantilla ${$("sel-plantilla").value}`);
+  }
   $("modal-fotos").innerHTML = (SLIDE.detalle || []).map(f => `
     <div class="foto"><img src="/thumb?album=${enc(ALBUM)}&key=${f.key}" loading="lazy" alt="">
       ${elegidas ? `<button class="sacar" data-name="${esc(f.name)}" title="Sacar esta foto del post">✕</button>` : ""}
@@ -408,7 +442,9 @@ function cerrar() { $("fondo-modal").classList.remove("abierto"); }
 
 function agregarCambio(linea) {
   const lista = CAMBIOS[SLIDE_MODO];
-  const clave = (l) => /^[+-] /.test(l) ? l : l.split(" ")[0];     // una orden por slide, o por foto
+  // Una orden por slide (la última manda), salvo juntar y sacar/sumar fotos, que se acumulan
+  const clave = (l) => /^[+-] /.test(l) || / juntar /.test(l) ? l
+                     : / plantilla /.test(l) ? l.split(" ").slice(0, 2).join(" ") : l.split(" ")[0];
   CAMBIOS[SLIDE_MODO] = lista.filter(c => clave(c) !== clave(linea)).concat([linea]);
   pintarBarra();
   if (!/^[+-] /.test(linea)) cerrar();
@@ -474,8 +510,28 @@ async function cargarElegidas() {
   if (!ALBUM) return;
   const r = await get(`/api/elegidas?album=${enc(ALBUM)}`);
   MARCADAS = new Set(r.elegidas.map(e => e.name));
+  SLIDES_PEDIDAS = r.slides || null;
   pintarCuenta();
+  pintarTope();
 }
+
+// El selector de cuántas slides: "Automático" (lo decide la herramienta por las fotos) o un número
+let SLIDES_PEDIDAS = null, SLIDES_AUTO = null;
+function pintarTope(auto) {
+  if (auto !== undefined && auto !== null) SLIDES_AUTO = auto;
+  const opciones = [`<option value="auto">Automático${SLIDES_AUTO ? " (" + SLIDES_AUTO + ")" : ""}</option>`];
+  for (let n = 1; n <= 20; n++) opciones.push(`<option value="${n}">${n}</option>`);
+  $("tope").innerHTML = opciones.join("");
+  $("tope").value = SLIDES_PEDIDAS ? String(SLIDES_PEDIDAS) : "auto";
+}
+$("tope").onchange = async () => {
+  const v = $("tope").value;
+  const r = await post("/api/elegidas-slides", {album: ALBUM, slides: v === "auto" ? null : Number(v)});
+  if (r.error) { avisar(r.error); return; }
+  SLIDES_PEDIDAS = r.slides;
+  // Si ya hay un post armado, se rehace con la cantidad nueva
+  if (POSTS.elegidas.slides.length) correr("/api/curar", {album: ALBUM, modo: "elegidas"});
+};
 
 function resultadoElegidas(r, origen) {
   if (r.error) { avisar(r.error); return; }
@@ -512,8 +568,7 @@ $("todas").onclick = async () => {
   if (!a || !confirm(`Usar las ${a.fotos} fotos de «${ALBUM}» como elegidas?\n\nSirve cuando la carpeta ya es sólo lo que elegiste.`)) return;
   resultadoElegidas(await post("/api/elegidas-todas", {album: ALBUM}), "Todas las fotos");
 };
-$("curar-elegidas").onclick = () =>
-  correr("/api/curar", {album: ALBUM, modo: "elegidas", slides: Number($("tope").value)});
+$("curar-elegidas").onclick = () => correr("/api/curar", {album: ALBUM, modo: "elegidas"});
 
 // --- el selector de fotos --------------------------------------------------------------------
 
@@ -611,7 +666,7 @@ $("listo-elegir").onclick = async () => {
   const r = await post("/api/elegidas", {album: ALBUM, nombres: orden, sumar: false});
   if (r.error) { avisar(r.error); return; }
   mostrar("elegidas");
-  correr("/api/curar", {album: ALBUM, modo: "elegidas", slides: Number($("tope").value)});
+  correr("/api/curar", {album: ALBUM, modo: "elegidas"});
 };
 
 // --- pestañas, botones generales -------------------------------------------------------------

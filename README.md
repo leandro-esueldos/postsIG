@@ -28,8 +28,9 @@ Abre una página en el navegador —sólo en esta máquina, las fotos no salen d
   - **Post de la IA**: *Armar el post* recorre el álbum entero y elige los momentos (hasta 20
     slides), mostrando la consola en vivo.
   - **Con mis elegidas**: Diego ya eligió las fotos y la herramienta arma los collages con
-    **todas**, en 20 slides como mucho (o menos, con el selector *hasta N slides*). Las fotos se
-    eligen de cualquiera de estas formas, y se pueden combinar:
+    **todas**. Cuántas slides lo decide la herramienta por las fotos (*Automático*), y se puede
+    pisar con el selector de 1 a 20. Las fotos se eligen de cualquiera de estas formas, y se
+    pueden combinar:
     - **Elegir fotos del álbum**: la grilla de miniaturas de todo el casamiento, clic para marcar,
       Shift+clic para marcar un tramo entero. Se guarda solo. *Partir de lo que eligió la IA*
       marca las del otro post, para sacar y sumar sobre eso.
@@ -40,8 +41,16 @@ Abre una página en el navegador —sólo en esta máquina, las fotos no salen d
     - **Usar todas las fotos del álbum**: para cuando el casamiento que se agregó ya es sólo la
       selección.
 - Tocando una slide se ven sus fotos y las alternativas de ese momento del día, y se cambia lo que
-  haga falta. En el post con elegidas, cada foto tiene una ✕ para sacarla y las alternativas se
-  suman. Cada cambio se aplica y el post se rehace en segundos.
+  haga falta. En el post con elegidas se puede, además: **separar** un collage (que sus fotos
+  vayan solas), **juntar** una slide con la anterior o la siguiente en un collage (hasta 6 fotos),
+  **cambiar la plantilla** de un collage, sacar una foto con la ✕ y sumar alternativas. Cada
+  cambio se aplica y el post se rehace en segundos.
+
+  *Automático* cuenta cada vertical como 0,6 slides y cada apaisada como 0,5: él pone las
+  apaisadas de a dos y los retratos fuertes solos. Así, 10 verticales dan 6 slides (cinco solas
+  y un collage de 5), 10 apaisadas dan 5 apilados, y 20 fotos mezcladas, unas 11. Todo lo que él
+  cambia (cantidad de slides, qué va solo, qué va junto y con qué plantilla) queda guardado en
+  `elegidas.txt`, así volver a armarlo no lo deshace.
 - **Abrir la carpeta de slides** deja los JPG numerados adelante, listos para subir en ese orden.
   Llevan la hora de captura consecutiva (un segundo por slide): pasadas por AirDrop, quedan en
   Fotos del iPhone juntas y en el orden del post.
