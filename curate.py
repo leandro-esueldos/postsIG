@@ -339,11 +339,14 @@ def build_post(album: Path, out: Path, slides: list, representantes: list, confi
 
 
 def armar_con_elegidas(args, album: Path, out: Path, photos: list, representantes: list,
-                       config: dict, n_slides: int, archivo_cambios: Path) -> tuple[list, str, int]:
+                       config: dict, archivo_cambios: Path) -> tuple[list, str, dict]:
     """Modo 'con mis elegidas': entran todas las fotos que eligió él, repartidas en collages.
 
     La lista vive en out/elegidas.txt, que es la fuente de verdad: la primera vez se arma desde lo
     que se pasó (una carpeta, un archivo o --todas), y después los cambios a mano se guardan ahí.
+
+    Cuántas slides: lo que se pida con --slides, si no lo que diga la lista ("@slides"), y si no
+    lo decide la herramienta según cuántas fotos son y de qué orientación.
     """
     import bisect
 
@@ -364,24 +367,28 @@ def armar_con_elegidas(args, album: Path, out: Path, photos: list, representante
             print(f"  se usa la lista que ya estaba en {lista_path} (borrarla para empezar de "
                   f"nuevo desde lo que se pasó)", flush=True)
     elif args.todas:
-        elegidas_lib.guardar(lista_path, [(p.name, False) for p in photos])
+        elegidas_lib.guardar(lista_path, elegidas_lib.Lista([elegidas_lib.Foto(p.name) for p in photos]))
     elif fuente is not None and fuente.is_dir():
-        elegidas_lib.guardar(lista_path, elegidas_lib.desde_carpeta(fuente))
+        elegidas_lib.guardar(lista_path, elegidas_lib.Lista(
+            [elegidas_lib.Foto(n) for n in elegidas_lib.desde_carpeta(fuente)]))
     elif fuente is not None:
         elegidas_lib.guardar(lista_path, elegidas_lib.leer(fuente))
-    items = elegidas_lib.leer(lista_path)
+    lista = elegidas_lib.leer(lista_path)
 
-    items, hechos = elegidas_lib.aplicar_cambios(archivo_cambios, out / "seleccion.json",
-                                                 items, por_nombre)
+    lista, hechos = elegidas_lib.aplicar_cambios(archivo_cambios, out / "seleccion.json",
+                                                 lista, por_nombre)
     if hechos:
         print(f"Cambios pedidos ({len(hechos)}):", flush=True)
         for linea in hechos:
             print(f"  {linea}", flush=True)
-        elegidas_lib.guardar(lista_path, items)
+        elegidas_lib.guardar(lista_path, lista)
 
-    faltan = [n for n, _ in items if n.lower() not in por_nombre]
-    elegidas = [por_nombre[n.lower()] for n, _ in items if n.lower() in por_nombre]
-    solas = {por_nombre[n.lower()].name for n, s in items if s and n.lower() in por_nombre}
+    adentro = [f for f in lista.fotos if f.name.lower() in por_nombre]
+    faltan = [f.name for f in lista.fotos if f.name.lower() not in por_nombre]
+    elegidas = [por_nombre[f.name.lower()] for f in adentro]
+    solas = {por_nombre[f.name.lower()].name for f in adentro if f.sola}
+    grupos = {por_nombre[f.name.lower()].name: f.grupo for f in adentro if f.grupo}
+    plantillas = {f.grupo: f.plantilla for f in adentro if f.grupo and f.plantilla}
     print(f"Con sus elegidas: {len(elegidas)} fotos", flush=True)
     if faltan:
         print(f"  ojo: {len(faltan)} de la lista no están en el álbum: "
@@ -412,8 +419,19 @@ def armar_con_elegidas(args, album: Path, out: Path, photos: list, representante
             "elegidas": sorted(p.rel for p in elegidas),
         }, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    slides, afuera, aviso = elegidas_lib.pack(elegidas, solas, n_slides, config)
-    return slides, aviso, len(elegidas)
+    verticales, apaisadas = elegidas_lib.orientaciones(elegidas)
+    auto = elegidas_lib.auto_slides(elegidas)
+    pedido = args.slides or lista.slides
+    n_slides = min(pedido or auto, elegidas_lib.MAX_SLIDES)
+    print(f"  {verticales} verticales y {apaisadas} apaisadas: "
+          + (f"{n_slides} slides, como se pidió (la herramienta habría hecho {auto})" if pedido
+             else f"{n_slides} slides, decidido por las fotos"), flush=True)
+
+    slides, afuera, aviso = elegidas_lib.pack(elegidas, solas, n_slides, config, grupos, plantillas)
+    info = {"fotos": len(elegidas), "verticales": verticales, "apaisadas": apaisadas,
+            "slides_pedidas": pedido, "slides_auto": auto, "tope": n_slides,
+            "afuera": [p.name for p in afuera]}
+    return slides, aviso, info
 
 
 def describe(photos: list) -> None:
@@ -504,7 +522,10 @@ def main() -> None:
     except (SystemExit, Exception) as err:        # noqa: BLE001 - sin CLIP se sigue igual
         # Sin CLIP (no se pudo bajar el modelo, o no hay onnxruntime) el post se arma igual,
         # ordenado por técnica y caras: peor, pero mejor que no tener nada
-        print(f"  ojo: sin el modelo de contenido (CLIP), la preferencia no ordena: {err}", flush=True)
+        # Con sus elegidas no hace falta (él ya eligió): ahí no es un aviso, es un dato
+        aviso = "" if (args.elegidas or args.todas) else "ojo: "
+        print(f"  {aviso}sin el modelo de contenido (CLIP), la preferencia no ordena: {err}",
+              flush=True)
         embeddings = None
     preferencia = preference_scores(album, photos, embeddings)
     scored = quality.score_album([p.metrics for p in photos])
@@ -590,7 +611,7 @@ def main() -> None:
     modo_elegidas = bool(args.elegidas or args.todas)
     if modo_elegidas:
         slides, aviso, n_elegidas = armar_con_elegidas(
-            args, album, out, photos, representantes, config, n_slides, archivo_cambios)
+            args, album, out, photos, representantes, config, archivo_cambios)
         usadas = [{"photo": p} for e in slides for p in e["fotos"]]
         suplentes = selection.spares(representantes, usadas, per_chapter=24)
     else:
@@ -648,7 +669,7 @@ def main() -> None:
         "generado": datetime.now().isoformat(timespec="seconds"),
         "firma": plan_signature(config),
         "modo": "elegidas" if modo_elegidas else "ia",
-        "elegidas": n_elegidas,
+        "elegidas": n_elegidas,         # en ese modo: cuántas, orientación y slides
         "capitulos": moments.describe(representantes, bloques, nombres),
         "slides": [
             {"slide": e["slide"], "capitulo": e["capitulo"], "rel": e["photo"].rel,

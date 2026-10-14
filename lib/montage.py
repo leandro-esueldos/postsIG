@@ -71,6 +71,20 @@ TEMPLATES = {
         "celdas": [(20, 18, 388, 442), (425, 18, 635, 442), (20, 478, 485, 440),
                    (20, 938, 485, 394), (525, 478, 535, 854)],
     },
+    # Las dos que siguen NO salen de sus posts: él no publicó collages de 2 verticales ni de 3
+    # fotos. Hacen falta en el modo "con mis elegidas", donde él junta slides a mano y pueden
+    # quedar 2 verticales o 3 fotos. Usan el lenguaje de "detalles" (fondo blanco, margen 20,
+    # separación 18) para que no desentonen, y sólo se usan en ese modo (la config no las lista).
+    "par": {
+        "origen": "derivada, no medida — dos verticales 2:3 lado a lado, sobre blanco",
+        "fondo": (255, 255, 255),
+        "celdas": [(20, 292, 511, 766), (549, 292, 511, 766)],
+    },
+    "trio": {
+        "origen": "derivada, no medida — una apaisada arriba y dos verticales abajo, sobre blanco",
+        "fondo": (255, 255, 255),
+        "celdas": [(20, 20, 1040, 590), (20, 628, 511, 702), (549, 628, 511, 702)],
+    },
     "polaroid": {
         "origen": "C6aDmJ1JyeC-1 — cuatro polaroids con giro y sombra",
         # Medido al píxel: fondo blanco puro, marco en 247 con textura de papel, y en el borde de
@@ -354,6 +368,8 @@ PREFIERE = {
     "apilado": set(),
     "apilado_blanco": set(),
     "grilla_6": set(),
+    "par": {"retrato", "pareja", "detalle"},
+    "trio": set(),
 }
 MIN_COMPANION_SCORE = 0.5
 MIN_COMPANION_HASH = 12

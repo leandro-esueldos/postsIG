@@ -155,6 +155,22 @@ eligió él y que arme los collages.
   que publicarlas, sin esperar a que las suba: queda en `elegidas.json` y el entrenamiento lo usa.
 - Los dos posts conviven: el de la IA en `salida/<boda>/`, el suyo en `salida/<boda>/elegidas/`.
 
+### Configurable (13/10/2026)
+
+Decisión: por ahora el flujo es éste —Diego elige 10 a 20 fotos y la herramienta arma los
+collages—. Con el tope fijo de 20 slides casi no salían collages (10 fotos daban 9 slides), porque
+sobraba lugar. Ahora:
+
+- **La cantidad de slides sale de las fotos**: 0,6 por vertical y 0,5 por apaisada, nunca menos de
+  las que hacen falta para que entren todas. Se puede pisar (1 a 20) y volver a automático.
+- **Todo se edita**: separar, juntar con la vecina, cambiar la plantilla. Se guarda como marcas
+  en `elegidas.txt` (`sola`, `grupo=`, `plantilla=`, `@slides`), y la partición se acomoda
+  alrededor de lo que él fijó.
+- **Dos plantillas nuevas, `par` y `trio`**, porque al juntar slides a mano aparecen 2 verticales o
+  3 fotos y no había con qué armarlas. No salen de sus posts: usan el lenguaje de "detalles"
+  (blanco, margen 20, separación 18) y cuestan más que las suyas, así que en automático sólo
+  entran cuando hacen falta. El modo IA no las usa.
+
 ## Riesgo que apareció al entrenar desde la Mac
 
 El modelo se entrenó con seis álbumes que viven en otra máquina. Reentrenar en la Mac de Diego con

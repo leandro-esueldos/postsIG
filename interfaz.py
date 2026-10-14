@@ -269,7 +269,7 @@ def listar_albumes() -> list[dict]:
             "curado": ia.is_file() or eleg.is_file(),
             "cuando": _cuando(ia) or _cuando(eleg),
             "curado_ia": ia.is_file(), "curado_elegidas": eleg.is_file(),
-            "elegidas": len(elegidas_lib.leer(lista)),
+            "elegidas": len(elegidas_lib.leer(lista).fotos),
             "carpeta_elegidas": (carpeta / "elegidas").is_dir(),
             "publicado": any((carpeta / d).is_dir() for d in ("publicado", "publicadas", "instagram")),
         })
@@ -283,6 +283,8 @@ def datos_post(nombre: str, modo: str = "ia") -> dict:
     if not archivo.is_file():
         return {"slides": [], "suplentes": [], "capitulos": []}
     datos = json.loads(archivo.read_text(encoding="utf-8-sig"))
+    # Para editar un collage: qué plantillas hay para cada cantidad de fotos
+    datos["plantillas"] = elegidas_lib.plantillas_por_tamano()
     cambios = carpeta / "cambios.txt"
     datos["cambios"] = [l for l in cambios.read_text(encoding="utf-8-sig").splitlines()
                         if l.strip() and not l.strip().startswith("#")] if cambios.is_file() else []
@@ -338,18 +340,32 @@ def guardar_elegidas(nombre: str, album: Path, nombres: list[str], sumar: bool) 
     lista = destino(salida, nombre, "elegidas") / elegidas_lib.ARCHIVO
     hay = nombres_del_album(album)
     pedidas = elegidas_lib.desde_nombres(nombres)
-    faltan = [n for n, _ in pedidas if n.lower() not in hay]
-    nuevas = [(hay[n.lower()], False) for n, _ in pedidas if n.lower() in hay]
+    faltan = [n for n in pedidas if n.lower() not in hay]
+    previa = elegidas_lib.leer(lista)
+    nuevas = [hay[n.lower()] for n in pedidas if n.lower() in hay]
     if sumar:
-        previas = elegidas_lib.leer(lista)
-        ya = {n.lower() for n, _ in previas}
-        nuevas = previas + [x for x in nuevas if x[0].lower() not in ya]
+        nuevas = previa.nombres() + [n for n in nuevas if previa.buscar(n) is None]
+    # Las que siguen conservan sus marcas (sola, collage armado a mano, plantilla) y la cantidad
+    # de slides pedida; las nuevas entran sin marcas
+    previa.fotos = [previa.buscar(n) or elegidas_lib.Foto(n) for n in nuevas]
+    elegidas_lib.guardar(lista, previa)
+    return {"ok": True, "elegidas": len(previa.fotos), "faltan": faltan[:30],
+            "cuantas_faltan": len(faltan)}
+
+
+def guardar_slides(nombre: str, slides) -> dict:
+    """Cuántas slides quiere en el post con sus elegidas: un número, o None para automático."""
+    _, salida = carpetas()
+    archivo = destino(salida, nombre, "elegidas") / elegidas_lib.ARCHIVO
+    lista = elegidas_lib.leer(archivo)
+    if slides in (None, "", "auto"):
+        lista.slides = None
+    elif isinstance(slides, int) and 1 <= slides <= elegidas_lib.MAX_SLIDES:
+        lista.slides = slides
     else:
-        # Reemplazar la lista conserva las marcas de "sola" de las que siguen
-        solas = {n.lower() for n, s in elegidas_lib.leer(lista) if s}
-        nuevas = [(n, n.lower() in solas) for n, _ in nuevas]
-    elegidas_lib.guardar(lista, nuevas)
-    return {"ok": True, "elegidas": len(nuevas), "faltan": faltan[:30], "cuantas_faltan": len(faltan)}
+        return {"error": f"las slides van de 1 a {elegidas_lib.MAX_SLIDES}"}
+    elegidas_lib.guardar(archivo, lista)
+    return {"ok": True, "slides": lista.slides}
 
 
 def mini(album: Path, clave: str) -> Path | None:
@@ -437,7 +453,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"elegidas": []})
                 return
             lista = destino(salida, nombre, "elegidas") / elegidas_lib.ARCHIVO
-            self._json({"elegidas": [{"name": n, "sola": s} for n, s in elegidas_lib.leer(lista)]})
+            datos = elegidas_lib.leer(lista)
+            self._json({"elegidas": [{"name": f.name, "sola": f.sola, "grupo": f.grupo,
+                                      "plantilla": f.plantilla} for f in datos.fotos],
+                        "slides": datos.slides})
         elif url.path == "/slide":
             if not valido(nombre):
                 self._json({"error": "nombre raro"}, 400)
@@ -541,7 +560,7 @@ class Handler(BaseHTTPRequestHandler):
             extra = []
             if modo == "elegidas":
                 lista = carpeta / elegidas_lib.ARCHIVO
-                if not elegidas_lib.leer(lista):
+                if not elegidas_lib.leer(lista).fotos:
                     self._json({"error": "todavía no hay fotos elegidas"}, 400)
                     return
                 extra = ["--elegidas", str(lista)]
@@ -585,7 +604,7 @@ class Handler(BaseHTTPRequestHandler):
             if not ruta.is_dir():
                 self._json({"error": f"no existe la carpeta {ruta}"}, 400)
                 return
-            nombres = [n for n, _ in elegidas_lib.desde_carpeta(ruta)]
+            nombres = elegidas_lib.desde_carpeta(ruta)
             if not nombres:
                 self._json({"error": "esa carpeta no tiene fotos"}, 400)
                 return
@@ -595,6 +614,8 @@ class Handler(BaseHTTPRequestHandler):
                               f"{nombre} (se cruzan por nombre de archivo). Si esa carpeta es todo "
                               f"lo que hay, agregala como casamiento y usá «todas las fotos»"}
             self._json(r)
+        elif url.path == "/api/elegidas-slides":
+            self._json(guardar_slides(nombre, cuerpo.get("slides")))
         elif url.path == "/api/elegidas-todas":
             nombres = list(nombres_del_album(album).values())
             self._json(guardar_elegidas(nombre, album, nombres, False))
