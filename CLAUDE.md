@@ -4,7 +4,8 @@ Herramienta local que arma posts de Instagram a partir del álbum de un casamien
 se usa: [README.md](README.md). El plan y las fases: [PLAN.md](PLAN.md).
 
 - **Instalarla en una Mac:** seguir [INSTALAR-MAC-CON-CLAUDE.md](INSTALAR-MAC-CON-CLAUDE.md)
-  (`bash instalar-mac.sh` hace casi todo).
+  (`bash instalar-mac.sh` hace casi todo). El prompt que la arranca está en
+  [PROMPT-PARA-CLAUDE-MAC.md](PROMPT-PARA-CLAUDE-MAC.md).
 - **La raíz del repo es la carpeta `curator/` del proyecto original.** Los `.md` y los mensajes de
   los scripts dicen `python curator/x.py`: acá es `.venv/bin/python x.py`.
 - **Las fotos son de clientes.** Nada sale de la máquina. Los derivados (`referencias.npz`,

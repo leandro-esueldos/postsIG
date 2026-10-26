@@ -3,16 +3,8 @@
 Este archivo es para **Claude Code corriendo en la Mac** donde se va a usar la herramienta. La
 versión para hacerlo a mano, con el porqué de cada paso, es [INSTALAR-MAC.md](INSTALAR-MAC.md).
 
-**Para quien lo instala:** abrí Claude Code en la Terminal de la Mac y pegale esto:
-
-```
-Instalá Armar post en esta Mac. Cloná https://github.com/leandro-esueldos/postsIG en
-~/armar-post y seguí al pie de la letra INSTALAR-MAC-CON-CLAUDE.md. Preguntame lo que
-no puedas resolver solo; los archivos entrenados te los paso yo.
-```
-
-Tené a mano `referencias.npz`, `modelo_preferencia.json` y `datos_preferencia.npz` (ver paso 3):
-no están en git y sin los dos primeros la herramienta no sabe lo que él elige.
+**Para quien lo instala:** no hace falta leer esto. El texto para pegarle a Claude Code en la Mac
+está en [PROMPT-PARA-CLAUDE-MAC.md](PROMPT-PARA-CLAUDE-MAC.md).
 
 ---
 

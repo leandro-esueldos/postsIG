@@ -3,6 +3,10 @@
 De la carpeta de un casamiento a una selección para Instagram, sin publicar nada: Diego mira
 una hoja de contacto, aprueba o cambia, y sube él desde el celular.
 
+> **¿Instalarlo en una Mac con Claude Code?** Copiá el texto de
+> [PROMPT-PARA-CLAUDE-MAC.md](PROMPT-PARA-CLAUDE-MAC.md) y pegáselo a Claude en la Terminal de la
+> Mac. Hace todo lo demás.
+
 El plan completo y las fases que faltan están en [PLAN.md](PLAN.md). Para dejarlo instalado en
 la Mac de Diego, [INSTALAR-MAC.md](INSTALAR-MAC.md), o `bash instalar-mac.sh` con el repo clonado
 (para que lo haga Claude Code: [INSTALAR-MAC-CON-CLAUDE.md](INSTALAR-MAC-CON-CLAUDE.md)).
