@@ -5,6 +5,11 @@ no salen de su disco. La única vez que necesita internet es para bajar Python y
 
 Tiempo: **20–30 minutos**, casi todo esperando descargas.
 
+> **Atajo.** Con el repo clonado en la Mac, `bash instalar-mac.sh` hace los pasos 2 a 8 solo y
+> dice qué falta. Para que lo instale Claude Code, pasale
+> [INSTALAR-MAC-CON-CLAUDE.md](INSTALAR-MAC-CON-CLAUDE.md). En el clon no hay carpeta `curator/`:
+> los comandos de abajo van sin ese prefijo.
+
 ---
 
 ## 0. Antes de salir de tu máquina

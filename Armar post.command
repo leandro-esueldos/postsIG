@@ -5,11 +5,15 @@
 # La primera vez, macOS pide permiso para ejecutarlo. Si dice que no se puede abrir porque
 # viene de un desarrollador no identificado: clic derecho sobre el archivo -> Abrir -> Abrir.
 
-cd "$(dirname "$0")/.." || exit 1
+# Este archivo vive al lado de interfaz.py. El entorno de Python puede estar en esta misma carpeta
+# (el repo clonado, lo que deja instalar-mac.sh) o en la de arriba (la carpeta curator/ adentro
+# del proyecto, como en INSTALAR-MAC.md).
+cd "$(dirname "$0")" || exit 1
 
-# El python del entorno del proyecto si está, si no el del sistema
 if [ -x ".venv/bin/python" ]; then
   PY=".venv/bin/python"
+elif [ -x "../.venv/bin/python" ]; then
+  PY="../.venv/bin/python"
 elif command -v python3 >/dev/null 2>&1; then
   PY="python3"
 else
@@ -20,4 +24,4 @@ else
 fi
 
 echo "Abriendo Armar post…"
-exec "$PY" curator/interfaz.py
+exec "$PY" interfaz.py

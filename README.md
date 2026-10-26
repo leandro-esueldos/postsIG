@@ -4,7 +4,8 @@ De la carpeta de un casamiento a una selección para Instagram, sin publicar nad
 una hoja de contacto, aprueba o cambia, y sube él desde el celular.
 
 El plan completo y las fases que faltan están en [PLAN.md](PLAN.md). Para dejarlo instalado en
-la Mac de Diego, [INSTALAR-MAC.md](INSTALAR-MAC.md).
+la Mac de Diego, [INSTALAR-MAC.md](INSTALAR-MAC.md), o `bash instalar-mac.sh` con el repo clonado
+(para que lo haga Claude Code: [INSTALAR-MAC-CON-CLAUDE.md](INSTALAR-MAC-CON-CLAUDE.md)).
 
 ## Uso
 

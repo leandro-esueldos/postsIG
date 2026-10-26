@@ -18,3 +18,6 @@ entrenamiento.json
 datos_preferencia.npz
 *.anterior.npz
 *.anterior.json
+
+# El entorno de Python que arma instalar-mac.sh
+.venv/
